@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Blast! Pro (Fixed)</title>
+    <style>
+        :root {
+            --bg-color: #121420;
+            --grid-bg: #1c2638;
+            --cell-empty: #232d42;
+            --text-color: #ffffff;
+            --accent-color: #ff4757;
+            --cell-size: min(11vw, 55px);
+            --gap: 4px;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; flex-direction: column;
+            align-items: center; height: 100vh; overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header {
+            width: 100%; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+            max-width: 500px; z-index: 10;
+        }
+
+        .score-board {
+            background: var(--grid-bg); padding: 10px 20px; border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; min-width: 90px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .label { font-size: 0.7rem; color: #8fa1b3; font-weight: 700; text-transform: uppercase; }
+        .value { font-size: 1.5rem; font-weight: 800; color: #fff; }
+
+        .icon-btn {
+            background: transparent; border: 2px solid var(--cell-empty); color: #fff;
+            width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s;
+        }
+        .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.1); }
+        .icon-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+        /* --- Main Game Area --- */
+        main {
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            width: 100%; position: relative;
+        }
+
+        #grid {
+            display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+            gap: var(--gap); padding: var(--gap); background-color: var(--grid-bg);
+            border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            width: calc((var(--cell-size) * 8) + (var(--gap) * 9));
+            height: calc((var(--cell-size) * 8) + (var(--gap) * 9));
+            position: relative; z-index: 5;
+        }
+
+        .cell {
+            background-color: var(--cell-empty); border-radius: 6px; width: 100%; height: 100%;
+            transition: transform 0.1s; position: relative;
+        }
+
+        /* --- Blocks Styling --- */
+        .block-base {
+            width: 100%; height: 100%; border-radius: 6px; position: relative;
+            box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .block-base::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 50%);
+            border-radius: 6px; pointer-events: none;
+        }
+
+        /* Colors */
+        .c1 { background: #FFD93D; }
+        .c2 { background: #FF6B6B; }
+        .c3 { background: #4D96FF; }
+        .c4 { background: #6BCB77; }
+        .c5 { background: #A66CFF; }
+
+        /* Animations */
+        @keyframes bounce { 0% { transform: scale(0.9); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .placed { animation: bounce 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        .clearing { animation: flashOut 0.4s ease-in forwards; }
+        @keyframes flashOut {
+            0% { transform: scale(1); filter: brightness(2); background: #fff; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* --- Particles --- */
+        #particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; overflow: hidden; }
+        .particle { position: absolute; border-radius: 2px; pointer-events: none; }
+
+        /* --- Piece Container --- */
+        #piece-container {
+            width: 100%; height: 200px; display: flex; justify-content: space-around; align-items: center;
+            padding-bottom: 20px; background: linear-gradient(to top, rgba(0,0,0,0.3), transparent);
+            z-index: 5;
+        }
+        .piece-slot { width: 30%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
+        .piece { display: grid; gap: var(--gap); cursor: grab; transition: transform 0.1s; touch-action: none; position: relative; }
+        .piece:active { cursor: grabbing; transform: scale(1.1); }
+        .block { width: var(--cell-size); height: var(--cell-size); }
+        .block .block-base { box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.3); }
+
+        /* Ghost */
+        .ghost-block { background-color: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); box-shadow: none !important; }
+        .ghost-block::after { display: none; }
+
+        /* Drag Layer */
+        #drag-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999; }
+
+        /* Modal */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8);
+            display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px);
+        }
+        .modal {
+            background: #2a364b; padding: 40px; border-radius: 20px; text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #3e506e;
+            animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes modalPop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        h2 { margin: 0 0 10px 0; color: #fff; font-size: 2rem; }
+        .score-big { font-size: 3rem; font-weight: bold; color: var(--accent-color); margin: 10px 0 30px 0; display: block; }
+        
+        button.action-btn {
+            background: linear-gradient(135deg, #FF6B6B, #ff4757); color: white; border: none;
+            padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); transition: transform 0.1s; font-weight: bold;
+        }
+        button.action-btn:active { transform: scale(0.95); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="score-board">
+            <span class="label">Best</span>
+            <span class="value" id="best-score">0</span>
+        </div>
+        <button id="btn-restart" class="icon-btn" title="Restart">↻</button>
+        <div class="score-board">
+            <span class="label">Score</span>
+            <span class="value" id="current-score">0</span>
+        </div>
+    </header>
+
+    <main>
+        <div id="grid"></div>
+    </main>
+    
+    <div id="particles"></div>
+
+    <div id="piece-container">
+        <div class="piece-slot" id="slot-0"></div>
+        <div class="piece-slot" id="slot-1"></div>
+        <div class="piece-slot" id="slot-2"></div>
+    </div>
+
+    <div id="drag-layer"></div>
+
+    <div id="modal-overlay">
+        <div class="modal">
+            <h2>No Moves!</h2>
+            <p>遊戲結束</p>
+            <span class="score-big" id="final-score">0</span>
+            <button id="restart-btn" class="action-btn">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Audio System ---
+        class SoundManager {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.enabled = true;
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+            }
+            resume() {
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.enabled) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+            playPickup() {
+                this.playTone(800, 'sine', 0.1, 0.1);
+                setTimeout(() => this.playTone(1200, 'sine', 0.1, 0.1), 30);
+            }
+            playPlace() {
+                this.playTone(150, 'triangle', 0.1, 0.3);
+                this.playTone(100, 'sine', 0.1, 0.3);
+            }
+            playClear(lines) {
+                this.playTone(110, 'square', 0.15, 0.15); 
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((note, i) => {
+                    setTimeout(() => {
+                        this.playTone(note, 'sine', 0.4, 0.15);
+                        this.playTone(note * 1.01, 'triangle', 0.2, 0.05); 
+                    }, i * 40);
+                });
+                if (lines > 1) this.playTone(80, 'sawtooth', 0.3, 0.1);
+            }
+            playGameOver() {
+                this.playTone(300, 'sawtooth', 0.5, 0.2);
+                setTimeout(() => this.playTone(200, 'sawtooth', 0.5, 0.2), 300);
+                setTimeout(() => this.playTone(100, 'sawtooth', 1.0, 0.2), 600);
+            }
+        }
+        const sfx = new SoundManager();
+
+        // --- Game Config ---
+        const GRID_SIZE = 8;
+        const COLORS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+        
+        const SHAPE_DEFS = [
+            { shape: [[0,0]], weight: 2 },
+            { shape: [[0,0], [0,1]], weight: 5 },
+            { shape: [[0,0], [1,0]], weight: 5 },
+            { shape: [[0,0], [0,1], [0,2]], weight: 8 },
+            { shape: [[0,0], [1,0], [2,0]], weight: 8 },
+            { shape: [[0,0], [0,1], [0,2], [0,3]], weight: 12 },
+            { shape: [[0,0], [1,0], [2,0], [3,0]], weight: 12 },
+            { shape: [[0,0], [0,1], [0,2], [0,3], [0,4]], weight: 6 },
+            { shape: [[0,0], [1,0], [2,0], [3,0], [4,0]], weight: 6 },
+            { shape: [[0,0], [1,0], [0,1], [1,1]], weight: 8 },
+            { shape: [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]], weight: 10 },
+            { shape: [[0,0], [1,0], [2,0], [0,1], [1,1], [2,1]], weight: 10 },
+            { shape: [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2], [2,0], [2,1], [2,2]], weight: 9 },
+            { shape: [[0,0], [1,0], [2,0], [2,1]], weight: 8 },
+            { shape: [[0,0], [1,0], [2,0], [0,1]], weight: 8 },
+            { shape: [[0,0], [1,0], [1,1], [2,1]], weight: 8 },
+            { shape: [[0,1], [1,1], [1,0], [2,0]], weight: 8 },
+            { shape: [[0,0], [1,0], [2,0], [1,1]], weight: 8 }
+        ];
+
+        // --- Variables ---
+        let gridData = [];
+        let score = 0;
+        let bestScore = localStorage.getItem('blockBlastBestPro') || 0;
+        let currentPieces = [null, null, null]; // 初始化為3個空位
+        let isDragging = false;
+        let dragPiece = null;
+        let dragElement = null;
+        let dragOffset = { x: 0, y: 0 };
+        let originalSlotIndex = -1;
+
+        const gridEl = document.getElementById('grid');
+        const particlesEl = document.getElementById('particles');
+        const scoreEl = document.getElementById('current-score');
+        const bestScoreEl = document.getElementById('best-score');
+        const dragLayer = document.getElementById('drag-layer');
+        const slots = [
+            document.getElementById('slot-0'), document.getElementById('slot-1'), document.getElementById('slot-2')
+        ];
+        const modal = document.getElementById('modal-overlay');
+        const finalScoreEl = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const topRestartBtn = document.getElementById('btn-restart');
+
+        // --- Init ---
+        function initGame() {
+            bestScoreEl.innerText = bestScore;
+            createGrid();
+            score = 0;
+            updateScore(0);
+            gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            
+            // 強制重置積木狀態
+            currentPieces = [null, null, null];
+            slots.forEach(slot => slot.innerHTML = '');
+            
+            spawnPieces();
+            modal.style.display = 'none';
+        }
+
+        function createGrid() {
+            gridEl.innerHTML = '';
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        // --- Spawning Logic (Fixed & Unique) ---
+        function spawnPieces() {
+            // 找出哪些位置是空的
+            const emptyIndices = [];
+            for(let i=0; i<3; i++) {
+                if (currentPieces[i] === null) emptyIndices.push(i);
+            }
+
+            if (emptyIndices.length > 0) {
+                const countNeeded = emptyIndices.length;
+                const newShapes = [];
+                const defCopy = [...SHAPE_DEFS];
+                
+                for(let k=0; k<countNeeded; k++) {
+                    if (defCopy.length === 0) break;
+                    const totalWeight = defCopy.reduce((sum, item) => sum + item.weight, 0);
+                    let random = Math.random() * totalWeight;
+                    let selectedIndex = -1;
+                    for(let j=0; j<defCopy.length; j++) {
+                        if (random < defCopy[j].weight) { selectedIndex = j; break; }
+                        random -= defCopy[j].weight;
+                    }
+                    if (selectedIndex !== -1) {
+                        newShapes.push(defCopy[selectedIndex]);
+                        defCopy.splice(selectedIndex, 1); // 避免重複
+                    }
+                }
+
+                emptyIndices.forEach((slotIndex, i) => {
+                    const randomShapeData = newShapes[i];
+                    if (randomShapeData) {
+                        const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+                        const pieceObj = { ...randomShapeData, color: randomColor, index: slotIndex };
+                        currentPieces[slotIndex] = pieceObj;
+                        renderPieceInSlot(pieceObj, slots[slotIndex]);
+                    }
+                });
+            }
+            
+            // 只在生成新積木時檢查 Game Over
+            checkGameOver();
+        }
+
+        function renderPieceInSlot(piece, slotElement) {
+            const pieceEl = document.createElement('div');
+            pieceEl.className = 'piece';
+            pieceEl.dataset.index = piece.index;
+            const rows = Math.max(...piece.shape.map(p => p[1])) + 1;
+            const cols = Math.max(...piece.shape.map(p => p[0])) + 1;
+            pieceEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            pieceEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            piece.shape.forEach(([x, y]) => {
+                const block = document.createElement('div');
+                block.className = `block`;
+                const inner = document.createElement('div');
+                inner.className = `block-base ${piece.color}`;
+                block.appendChild(inner);
+                block.style.gridColumnStart = x + 1;
+                block.style.gridRowStart = y + 1;
+                pieceEl.appendChild(block);
+            });
+
+            pieceEl.addEventListener('pointerdown', handleDragStart);
+            slotElement.appendChild(pieceEl);
+            pieceEl.animate([
+                { transform: 'scale(0)' }, { transform: 'scale(1.1)', offset: 0.7 }, { transform: 'scale(1)' }
+            ], { duration: 300, easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)' });
+        }
+
+        // --- Drag System ---
+        function handleDragStart(e) {
+            sfx.resume();
+            e.preventDefault();
+            const pieceEl = e.currentTarget;
+            const index = parseInt(pieceEl.dataset.index);
+            if (!currentPieces[index]) return;
+            isDragging = true;
+            originalSlotIndex = index;
+            dragPiece = currentPieces[index];
+            sfx.playPickup();
+            dragElement = pieceEl.cloneNode(true);
+            dragElement.style.position = 'absolute';
+            dragElement.style.width = pieceEl.getBoundingClientRect().width + 'px';
+            dragElement.style.height = pieceEl.getBoundingClientRect().height + 'px';
+            dragElement.style.zIndex = 1000;
+            dragElement.style.pointerEvents = 'none';
+            dragElement.style.opacity = '0.95';
+            const rect = pieceEl.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            updateDragPosition(e.clientX, e.clientY);
+            dragLayer.appendChild(dragElement);
+            pieceEl.style.opacity = '0';
+            document.addEventListener('pointermove', handleDragMove);
+            document.addEventListener('pointerup', handleDragEnd);
+            pieceEl.setPointerCapture(e.pointerId);
+        }
+
+        function handleDragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            updateDragPosition(e.clientX, e.clientY);
+            showGhost(e.clientX, e.clientY);
+        }
+
+        function updateDragPosition(x, y) {
+            if (dragElement) {
+                dragElement.style.left = (x - dragOffset.x) + 'px';
+                dragElement.style.top = (y - dragOffset.y) + 'px';
+            }
+        }
+
+        function handleDragEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            document.removeEventListener('pointermove', handleDragMove);
+            document.removeEventListener('pointerup', handleDragEnd);
+
+            const dropResult = tryPlacePiece(e.clientX, e.clientY);
+
+            if (dropResult) {
+                sfx.playPlace();
+                score += dragPiece.shape.length * 10;
+                updateScore(score);
+                const originalEl = slots[originalSlotIndex].querySelector('.piece');
+                if (originalEl) originalEl.remove();
+                currentPieces[originalSlotIndex] = null;
+                clearGhost();
+
+                // 如果所有積木都用完了，生成新的
+                if (currentPieces.every(p => p === null)) {
+                    currentPieces = [null, null, null];
+                    spawnPieces(); // 這裡會呼叫 checkGameOver
+                } else {
+                    // 成功放置後檢查剩餘積木是否還能落子
+                    checkGameOver();
+                }
+            } else {
+                animateBackToSlot();
+                clearGhost();
+            }
+
+            if (dragElement) { dragElement.remove(); dragElement = null; }
+            dragPiece = null;
+            originalSlotIndex = -1;
+        }
+
+        function animateBackToSlot() {
+            const originalEl = slots[originalSlotIndex].querySelector('.piece');
+            if (originalEl) {
+                originalEl.style.opacity = '1';
+                originalEl.animate([
+                    { transform: 'scale(0.9)' }, { transform: 'scale(1.05)' }, { transform: 'scale(1)' }
+                ], { duration: 200 });
+            }
+        }
+
+        // --- Grid Logic ---
+        function getGridCoordinates(clientX, clientY) {
+            const elLeft = clientX - dragOffset.x;
+            const elTop = clientY - dragOffset.y;
+            const gridRect = gridEl.getBoundingClientRect();
+            const blockSize = gridEl.children[0].getBoundingClientRect().width;
+            const gap = 4;
+            const relativeX = elLeft - gridRect.left + (blockSize/2);
+            const relativeY = elTop - gridRect.top + (blockSize/2);
+            let gridX = Math.floor(relativeX / (blockSize + gap));
+            let gridY = Math.floor(relativeY / (blockSize + gap));
+            return { x: gridX, y: gridY };
+        }
+
+        function showGhost(clientX, clientY) {
+            clearGhost();
+            const { x, y } = getGridCoordinates(clientX, clientY);
+            if (canPlace(dragPiece, x, y)) {
+                const cells = gridEl.children;
+                dragPiece.shape.forEach(([dx, dy]) => {
+                    const targetX = x + dx;
+                    const targetY = y + dy;
+                    if (targetX >= 0 && targetX < GRID_SIZE && targetY >= 0 && targetY < GRID_SIZE) {
+                        const index = targetY * GRID_SIZE + targetX;
+                        const cell = cells[index];
+                        cell.style.backgroundColor = 'rgba(255,255,255,0.15)';
+                        cell.style.boxShadow = 'inset 0 0 0 2px rgba(255,255,255,0.3)';
+                        cell.dataset.ghost = "true";
+                    }
+                });
+            }
+        }
+
+        function clearGhost() {
+            const ghosts = document.querySelectorAll('[data-ghost="true"]');
+            ghosts.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.boxShadow = '';
+                delete el.dataset.ghost;
+            });
+        }
+
+        function canPlace(piece, startX, startY) {
+            if (!piece) return false;
+            for (let [dx, dy] of piece.shape) {
+                const x = startX + dx;
+                const y = startY + dy;
+                if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return false;
+                if (gridData[y][x] !== null) return false;
+            }
+            return true;
+        }
+
+        function tryPlacePiece(clientX, clientY) {
+            const { x, y } = getGridCoordinates(clientX, clientY);
+            const gridRect = gridEl.getBoundingClientRect();
+            if (clientX < gridRect.left - 50 || clientX > gridRect.right + 50 ||
+                clientY < gridRect.top - 50 || clientY > gridRect.bottom + 50) {
+                return false;
+            }
+            if (canPlace(dragPiece, x, y)) {
+                placePieceOnGrid(dragPiece, x, y);
+                return true;
+            }
+            return false;
+        }
+
+        function placePieceOnGrid(piece, startX, startY) {
+            const cells = gridEl.children;
+            let rowsToClear = new Set();
+            let colsToClear = new Set();
+            piece.shape.forEach(([dx, dy]) => {
+                const x = startX + dx;
+                const y = startY + dy;
+                gridData[y][x] = piece.color;
+                const index = y * GRID_SIZE + x;
+                const cell = cells[index];
+                cell.innerHTML = `<div class="block-base ${piece.color} placed"></div>`;
+                rowsToClear.add(y);
+                colsToClear.add(x);
+            });
+            checkAndClearLines(rowsToClear, colsToClear);
+        }
+
+        function createParticles(x, y, colorClass) {
+            const cellRect = gridEl.children[y * GRID_SIZE + x].getBoundingClientRect();
+            const centerX = cellRect.left + cellRect.width / 2;
+            const centerY = cellRect.top + cellRect.height / 2;
+            const tempDiv = document.createElement('div');
+            tempDiv.className = `block-base ${colorClass}`;
+            document.body.appendChild(tempDiv);
+            const computedColor = getComputedStyle(tempDiv).backgroundColor;
+            document.body.removeChild(tempDiv);
+            for (let i = 0; i < 6; i++) {
+                const p = document.createElement('div');
+                p.classList.add('particle');
+                p.style.backgroundColor = computedColor;
+                p.style.left = centerX + 'px';
+                p.style.top = centerY + 'px';
+                p.style.width = (Math.random() * 8 + 4) + 'px';
+                p.style.height = p.style.width;
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 150 + 50;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity;
+                particlesEl.appendChild(p);
+                p.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], { duration: 500 + Math.random() * 300, easing: 'cubic-bezier(0, .9, .57, 1)' }).onfinish = () => p.remove();
+            }
+        }
+
+        function checkAndClearLines(rowsSet, colsSet) {
+            let linesCleared = 0;
+            let cellsToRemove = [];
+            rowsSet.forEach(y => {
+                let full = true;
+                for (let x = 0; x < GRID_SIZE; x++) if (gridData[y][x] === null) { full = false; break; }
+                if (full) {
+                    linesCleared++;
+                    for (let x = 0; x < GRID_SIZE; x++) cellsToRemove.push(y * GRID_SIZE + x);
+                }
+            });
+            colsSet.forEach(x => {
+                let full = true;
+                for (let y = 0; y < GRID_SIZE; y++) if (gridData[y][x] === null) { full = false; break; }
+                if (full) {
+                    linesCleared++;
+                    for (let y = 0; y < GRID_SIZE; y++) cellsToRemove.push(y * GRID_SIZE + x);
+                }
+            });
+            if (cellsToRemove.length > 0) {
+                sfx.playClear(linesCleared);
+                const uniqueIndices = [...new Set(cellsToRemove)];
+                const cells = gridEl.children;
+                uniqueIndices.forEach(index => {
+                    const cell = cells[index];
+                    const x = index % GRID_SIZE;
+                    const y = Math.floor(index / GRID_SIZE);
+                    const color = gridData[y][x];
+                    cell.classList.add('clearing');
+                    createParticles(x, y, color);
+                    gridData[y][x] = null;
+                });
+                setTimeout(() => {
+                    uniqueIndices.forEach(index => {
+                        cells[index].className = 'cell';
+                        cells[index].innerHTML = '';
+                    });
+                }, 350);
+                const clearScore = linesCleared * 10 + (linesCleared > 1 ? (linesCleared * 20) : 0);
+                updateScore(score + clearScore);
+                if(linesCleared > 1) showComboText(linesCleared);
+            }
+        }
+
+        function showComboText(count) {
+            const text = document.createElement('div');
+            text.innerText = count > 3 ? `SUPER!` : `Combo x${count}`;
+            text.style.position = 'absolute';
+            text.style.top = '50%'; text.style.left = '50%';
+            text.style.transform = 'translate(-50%, -50%)';
+            text.style.fontSize = '3rem';
+            text.style.fontWeight = 'bold';
+            text.style.color = '#fff';
+            text.style.textShadow = '0 4px 10px rgba(0,0,0,0.5)';
+            text.style.pointerEvents = 'none';
+            text.style.zIndex = '100';
+            gridEl.appendChild(text);
+            text.animate([
+                { transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0 },
+                { transform: 'translate(-50%, -50%) scale(1.2)', opacity: 1, offset: 0.2 },
+                { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 }
+            ], { duration: 800, easing: 'ease-out' }).onfinish = () => text.remove();
+        }
+
+        function updateScore(newScore) {
+            score = newScore;
+            scoreEl.innerText = score;
+            scoreEl.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 200 });
+            if (score > bestScore) {
+                bestScore = score;
+                bestScoreEl.innerText = bestScore;
+                localStorage.setItem('blockBlastBestPro', bestScore);
+            }
+        }
+
+        // --- Game Over Logic ---
+        function checkGameOver() {
+            const remainingPieces = currentPieces.filter(Boolean);
+            if (remainingPieces.length === 0) return;
+
+            let canMove = false;
+            // 遍歷所有當前手牌
+            for (let p of remainingPieces) {
+                // 遍歷整個網格的每一格
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        if (canPlace(p, x, y)) {
+                            canMove = true;
+                            break;
+                        }
+                    }
+                    if (canMove) break;
+                }
+                if (canMove) break;
+            }
+
+            if (!canMove) {
+                setTimeout(() => {
+                    sfx.playGameOver();
+                    finalScoreEl.innerText = score;
+                    modal.style.display = 'flex';
+                }, 500);
+            }
+        }
+
+        restartBtn.addEventListener('click', initGame);
+        topRestartBtn.addEventListener('click', initGame);
+
+        initGame();
+
+    </script>
+</body>
+</html>
