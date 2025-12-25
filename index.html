@@ -1,21 +1,31 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>遊戲入口</title>
+    <title>Mini Arcade - 遊戲中心</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f1115;
-            --panel: #1a1f2b;
-            --panel-soft: #151a23;
-            --text: #f2f4f8;
-            --muted: #b7bcc8;
-            --accent: #ff9900;
-            --border: #2a3242;
+            --bg-dark: #0a0c10;
+            --bg-gradient: linear-gradient(135deg, #0f1318 0%, #1a1f2e 50%, #0f1318 100%);
+            --card-bg: rgba(30, 35, 50, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover: rgba(40, 50, 70, 0.9);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-purple: #a855f7;
+            --accent-pink: #ec4899;
+            --accent-cyan: #06b6d4;
+            --glow-orange: 0 0 20px rgba(249, 115, 22, 0.3);
+            --glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+            --glow-green: 0 0 20px rgba(34, 197, 94, 0.3);
         }
 
         * {
@@ -26,137 +36,462 @@
 
         body {
             min-height: 100vh;
-            background: linear-gradient(180deg, #0f1115 0%, #141a25 100%);
-            color: var(--text);
-            font-family: 'Noto Sans TC', sans-serif;
-            padding: 48px 20px;
+            background: var(--bg-dark);
+            background-image: var(--bg-gradient);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(249, 115, 22, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 880px;
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
             margin: 0 auto;
-            display: grid;
-            gap: 24px;
+            padding: 40px 24px 60px;
         }
 
-        header {
-            background: var(--panel-soft);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
+        /* --- Header --- */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
         }
 
-        header h1 {
-            font-size: 2rem;
-            margin-bottom: 8px;
-            color: var(--accent);
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
         }
 
-        header p {
-            color: var(--muted);
-            line-height: 1.6;
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
-        .game-list {
-            display: grid;
-            gap: 16px;
+        /* --- Category Section --- */
+        .category {
+            margin-bottom: 48px;
         }
 
-        .game-card {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 16px;
+        .category-header {
+            display: flex;
             align-items: center;
-            padding: 20px;
-            background: var(--panel);
-            border: 1px solid var(--border);
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .category-icon {
+            font-size: 1.8rem;
+        }
+
+        .category-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .category-count {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* --- Game Grid --- */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        /* --- Game Card --- */
+        .game-card {
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--card-accent, var(--accent-orange)), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-6px);
+            background: var(--card-hover);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: var(--card-glow, var(--glow-orange));
+        }
+
+        .game-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
             border-radius: 12px;
-        }
-
-        .game-card h2 {
-            font-size: 1.3rem;
-            margin-bottom: 6px;
-        }
-
-        .game-card p {
-            color: var(--muted);
-            line-height: 1.5;
-            font-size: 0.95rem;
-        }
-
-        .btn {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 16px;
-            border-radius: 8px;
-            text-decoration: none;
+            font-size: 1.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
             font-weight: 600;
-            color: #1b1204;
-            background: var(--accent);
+            margin-bottom: 4px;
         }
 
-        .placeholder {
-            color: var(--muted);
+        .card-mode {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mode-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .card-desc {
+            color: var(--text-secondary);
             font-size: 0.95rem;
+            flex-grow: 1;
         }
 
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #ea580c 100%);
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .game-card:hover .play-btn {
+            transform: scale(1.05);
+        }
+
+        .play-btn::after {
+            content: '→';
+            transition: transform 0.2s;
+        }
+
+        .game-card:hover .play-btn::after {
+            transform: translateX(4px);
+        }
+
+        /* Accent colors per category */
+        .card-single {
+            --card-accent: var(--accent-green);
+            --card-glow: var(--glow-green);
+        }
+
+        .card-multi {
+            --card-accent: var(--accent-blue);
+            --card-glow: var(--glow-blue);
+        }
+
+        .card-board {
+            --card-accent: var(--accent-purple);
+        }
+
+        .card-single .card-icon {
+            background: rgba(34, 197, 94, 0.15);
+        }
+
+        .card-multi .card-icon {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .card-board .card-icon {
+            background: rgba(168, 85, 247, 0.15);
+        }
+
+        .card-single .play-btn {
+            background: linear-gradient(135deg, var(--accent-green) 0%, #16a34a 100%);
+        }
+
+        .card-multi .play-btn {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #2563eb 100%);
+        }
+
+        .card-board .play-btn {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, #7c3aed 100%);
+        }
+
+        /* Coming Soon Card */
+        .game-card.coming-soon {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .game-card.coming-soon .play-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+        }
+
+        /* --- Footer --- */
         footer {
             text-align: center;
-            color: #818899;
-            font-size: 0.85rem;
+            padding-top: 40px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
 
+        footer span {
+            color: var(--accent-orange);
+        }
+
+        /* --- Responsive --- */
         @media (max-width: 640px) {
-            body {
-                padding: 32px 16px;
+            .container {
+                padding: 24px 16px 40px;
             }
 
-            .game-card {
+            .header {
+                margin-bottom: 32px;
+            }
+
+            .category {
+                margin-bottom: 32px;
+            }
+
+            .game-grid {
                 grid-template-columns: 1fr;
-                justify-items: start;
             }
 
-            .btn {
-                width: 100%;
+            .category-header {
+                flex-wrap: wrap;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <header>
-            <h1>遊戲入口</h1>
-            <p>這裡是小遊戲的入口頁，點選想玩的遊戲即可進入。更多遊戲會陸續加入。</p>
+        <header class="header">
+            <h1>🎮 Mini Arcade</h1>
+            <p>精選小遊戲，隨時隨地暢玩！支援電腦、平板及手機。</p>
         </header>
 
-        <main class="game-list">
-            <article class="game-card">
-                <div>
-                    <h2>貪食蛇</h2>
-                    <p>控制蛇移動吃掉蘋果，避免撞牆或撞到自己。</p>
-                </div>
-                <a class="btn" href="snack.html">進入遊戲</a>
-            </article>
+        <!-- Single Player Games -->
+        <section class="category">
+            <div class="category-header">
+                <span class="category-icon">🕹️</span>
+                <h2 class="category-title">單人遊戲</h2>
+                <span class="category-count">3 款</span>
+            </div>
+            <div class="game-grid">
+                <a href="snack.html" class="game-card card-single">
+                    <div class="card-header">
+                        <div class="card-icon">🐍</div>
+                        <div>
+                            <h3 class="card-title">貪食蛇</h3>
+                            <div class="card-mode"><span class="mode-badge">經典</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">控制蛇移動吃掉蘋果，避免撞牆或撞到自己，挑戰最高分！</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
 
-            <article class="game-card">
-                <div>
-                    <h2>Block Blast</h2>
-                    <p>在 8x8 棋盤放置積木並消除整行或整列，挑戰你的空間規劃。</p>
-                </div>
-                <a class="btn" href="block_blast.html">進入遊戲</a>
-            </article>
+                <a href="block_blast.html" class="game-card card-single">
+                    <div class="card-header">
+                        <div class="card-icon">🧱</div>
+                        <div>
+                            <h3 class="card-title">Block Blast</h3>
+                            <div class="card-mode"><span class="mode-badge">益智</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">在 8x8 棋盤放置積木並消除整行或整列，考驗你的空間規劃能力。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
 
-            <article class="game-card">
-                <div>
-                    <h2>更多遊戲</h2>
-                    <p>後續會新增其他小遊戲，敬請期待。</p>
-                </div>
-                <span class="placeholder">即將上線</span>
-            </article>
-        </main>
+                <a href="dino_hunter.html" class="game-card card-single">
+                    <div class="card-header">
+                        <div class="card-icon">🦖</div>
+                        <div>
+                            <h3 class="card-title">恐龍獵人</h3>
+                            <div class="card-mode"><span class="mode-badge">射擊</span> <span class="mode-badge">3D</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="card-desc">駕駛皮卡車穿越叢林，用機槍狩獵恐龍，爆頭有額外加分！</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+            </div>
+        </section>
 
-        <footer>Mini Arcade</footer>
+        <!-- Multiplayer Games -->
+        <section class="category">
+            <div class="category-header">
+                <span class="category-icon">👥</span>
+                <h2 class="category-title">雙人對戰</h2>
+                <span class="category-count">3 款</span>
+            </div>
+            <div class="game-grid">
+                <a href="touch_pong.html" class="game-card card-multi">
+                    <div class="card-header">
+                        <div class="card-icon">🏓</div>
+                        <div>
+                            <h3 class="card-title">雙人乒乓球</h3>
+                            <div class="card-mode"><span class="mode-badge">PvP</span> <span
+                                    class="mode-badge">觸控</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">經典觸控對戰！兩位玩家各控制一邊擋板，先奪 11 分勝出。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+
+                <a href="air_hockey.html" class="game-card card-multi">
+                    <div class="card-header">
+                        <div class="card-icon">🥅</div>
+                        <div>
+                            <h3 class="card-title">雙人冰球</h3>
+                            <div class="card-mode"><span class="mode-badge">PvP</span> <span
+                                    class="mode-badge">物理</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">用手指拖動冰球棍，將冰球撞入對方龍門！先奪 7 分勝出。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+
+                <a href="tic_tac_toe.html" class="game-card card-multi">
+                    <div class="card-header">
+                        <div class="card-icon">⭕</div>
+                        <div>
+                            <h3 class="card-title">雙人井字棋</h3>
+                            <div class="card-mode"><span class="mode-badge">PvP</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">輪流落子，三個連成一線即勝！記錄勝負分數。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <!-- Board Games -->
+        <section class="category">
+            <div class="category-header">
+                <span class="category-icon">♟️</span>
+                <h2 class="category-title">棋類遊戲</h2>
+                <span class="category-count">2 款</span>
+            </div>
+            <div class="game-grid">
+                <a href="gomoku.html" class="game-card card-board">
+                    <div class="card-header">
+                        <div class="card-icon">⚫</div>
+                        <div>
+                            <h3 class="card-title">五子棋</h3>
+                            <div class="card-mode"><span class="mode-badge">PvP</span> <span
+                                    class="mode-badge">AI</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">經典策略遊戲，支援雙人對戰及三種難度 AI 挑戰。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+
+                <a href="chinese_chess.html" class="game-card card-board">
+                    <div class="card-header">
+                        <div class="card-icon">🔴</div>
+                        <div>
+                            <h3 class="card-title">中國象棋</h3>
+                            <div class="card-mode"><span class="mode-badge">PvP</span> <span
+                                    class="mode-badge">AI</span></div>
+                        </div>
+                    </div>
+                    <p class="card-desc">重現經典，挑戰智能電腦或與好友對弈，完整規則實現。</p>
+                    <div class="card-footer">
+                        <span class="play-btn">開始遊戲</span>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <footer>
+            Made with <span>❤️</span> by Mini Arcade Team
+        </footer>
     </div>
 </body>
+
 </html>

@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>五子棋 - Gomoku</title>
+    <style>
+        :root {
+            --bg-color: #f0deaa;
+            /* Traditional wood color */
+            --board-color: #eebb55;
+            --line-color: #5d4037;
+            --text-color: #2c3e50;
+            --btn-color: #8d6e63;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #ecf0f1;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .main-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .side-panel {
+            flex: 1;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            max-width: 250px;
+            text-align: left;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #ddd;
+            display: none;
+            /* Hidden on small screens initially */
+        }
+
+        .side-panel h3 {
+            color: #f0deaa;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #5d4037;
+            padding-bottom: 5px;
+        }
+
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Responsive Layout */
+        @media (min-width: 900px) {
+            .side-panel {
+                display: block;
+            }
+        }
+
+        @media (max-width: 899px) {
+            .container {
+                height: auto;
+                min-height: 100vh;
+                justify-content: flex-start;
+                padding-top: 20px;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .side-panel {
+                display: block;
+                max-width: 100%;
+                width: 90%;
+                margin-top: 20px;
+            }
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        select,
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
+        }
+
+        select {
+            background: #fff;
+            color: #2c3e50;
+        }
+
+        button {
+            background: var(--btn-color);
+            color: white;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.primary {
+            background: #27ae60;
+        }
+
+        button.restart {
+            background: #c0392b;
+        }
+
+        #game-board-container {
+            position: relative;
+            background: var(--board-color);
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            background: var(--board-color);
+            border-radius: 2px;
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50px;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: white;
+            color: #2c3e50;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 90%;
+            width: 350px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .modal p {
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>⚫ 五子棋 ⚪</h1>
+
+        <div class="main-content">
+            <!-- Left Panel: Rules -->
+            <div class="side-panel">
+                <h3>遊戲規則</h3>
+                <p>1. 黑棋先行，白棋後行。</p>
+                <p>2. 雙方輪流在棋盤交叉點落子。</p>
+                <p>3. 先在橫、直、斜任一方向連成五子者獲勝。</p>
+            </div>
+
+            <!-- Center Panel: Game Board -->
+            <div class="center-panel">
+
+                <div class="controls">
+                    <select id="mode-select">
+                        <option value="pvp">雙人對戰 (PvP)</option>
+                        <option value="pve" selected>人機對戰 (PvE)</option>
+                    </select>
+                    <select id="difficulty-select">
+                        <option value="easy">簡單 (Easy)</option>
+                        <option value="medium" selected>中等 (Medium)</option>
+                        <option value="hard">大師級 (Master)</option>
+                    </select>
+                    <button class="primary" id="start-btn">開始新局</button>
+                </div>
+
+                <div id="game-board-container">
+                    <canvas id="board"></canvas>
+                </div>
+
+                <div class="status" id="status">玩家 ⚫ 回合</div>
+            </div> <!-- End Center Panel -->
+
+            <!-- Right Panel: Tips -->
+            <div class="side-panel">
+                <h3>小貼士</h3>
+                <p>• <b>雙三</b>：同時形成兩個「活三」，是大殺招。</p>
+                <p>• <b>沖四</b>：四子連線，只要一步就能成五。</p>
+                <p>• 大師級電腦懂得防守，請小心佈局！</p>
+            </div>
+        </div> <!-- End Main Content -->
+    </div>
+
+    <div class="modal" id="game-over-modal">
+        <div class="modal-content">
+            <h2 id="winner-title">遊戲結束</h2>
+            <p id="winner-msg">黑棋勝出！</p>
+            <button class="primary" onclick="restartGame()">再來一局</button>
+            <button class="restart" onclick="closeModal()">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Gomoku (Five-in-a-Row) Implementation
+         * Features:
+         * - 15x15 Board
+         * - PvP and PvE Modes
+         * - Minimax AI with Alpha-Beta Pruning
+         * - Heuristic Evaluation Function
+         */
+
+        // --- Constants ---
+        const BOARD_SIZE = 15;
+        const CELL_SIZE = 30; // Will be dynamic based on screen
+        const EMPTY = 0;
+        const BLACK = 1;
+        const WHITE = 2;
+
+        // --- Game State ---
+        let board = []; // 2D array
+        let currentPlayer = BLACK;
+        let gameActive = false;
+        let gameMode = 'pve'; // 'pvp' or 'pve'
+        let difficulty = 'medium'; // 'easy', 'medium', 'hard'
+        let lastMove = null;
+        let isThinking = false;
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const modalEl = document.getElementById('game-over-modal');
+        const winnerTitle = document.getElementById('winner-title');
+        const winnerMsg = document.getElementById('winner-msg');
+
+        // --- Initialization ---
+        function initGame() {
+            // Reset Board
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(EMPTY));
+            currentPlayer = BLACK;
+            gameActive = true;
+            lastMove = null;
+            isThinking = false;
+
+            // UI Update
+            gameMode = document.getElementById('mode-select').value;
+            difficulty = document.getElementById('difficulty-select').value;
+            updateStatus();
+            resizeBoard();
+            drawBoard();
+            modalEl.style.display = 'none';
+
+            // Difficulty visibility
+            document.getElementById('difficulty-select').style.display = gameMode === 'pve' ? 'block' : 'none';
+        }
+
+        // --- Drawing ---
+        function resizeBoard() {
+            const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 200, 600);
+            const scale = maxSize / (BOARD_SIZE * 30 + 30); // Base calculation
+            canvas.width = Math.floor(maxSize);
+            canvas.height = Math.floor(maxSize);
+            drawBoard();
+        }
+
+        function getCellSize() {
+            return canvas.width / (BOARD_SIZE + 1);
+        }
+
+        function drawBoard() {
+            const cs = getCellSize();
+            const margin = cs;
+
+            // Clear
+            ctx.fillStyle = '#eebb55';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.beginPath();
+            ctx.strokeStyle = '#5d4037';
+            ctx.lineWidth = 1.5;
+
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                // Horizontal
+                ctx.moveTo(margin, margin + i * cs);
+                ctx.lineTo(margin + (BOARD_SIZE - 1) * cs, margin + i * cs);
+                // Vertical
+                ctx.moveTo(margin + i * cs, margin);
+                ctx.lineTo(margin + i * cs, margin + (BOARD_SIZE - 1) * cs);
+            }
+            ctx.stroke();
+
+            // Star points (3, 7, 11) - 0-indexed: 3, 7, 11 correspond to 4th, 8th, 12th lines
+            const stars = [3, 7, 11];
+            ctx.fillStyle = '#5d4037';
+            stars.forEach(r => {
+                stars.forEach(c => {
+                    ctx.beginPath();
+                    ctx.arc(margin + c * cs, margin + r * cs, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // Pieces
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] !== EMPTY) {
+                        drawPiece(r, c, board[r][c]);
+                    }
+                }
+            }
+
+            // Last move marker AND/OR Warning (if thinking)
+            if (lastMove) {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                const lr = lastMove[0];
+                const lc = lastMove[1];
+                ctx.fillRect(margin + lc * cs - 3, margin + lr * cs - 3, 6, 6);
+            }
+        }
+
+        function drawPiece(r, c, type) {
+            const cs = getCellSize();
+            const margin = cs;
+            const x = margin + c * cs;
+            const y = margin + r * cs;
+            const radius = cs * 0.4;
+
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+            // Gradient for 3D effect
+            const gradient = ctx.createRadialGradient(x - radius / 3, y - radius / 3, radius / 5, x, y, radius);
+            if (type === BLACK) {
+                gradient.addColorStop(0, '#555');
+                gradient.addColorStop(1, '#000');
+            } else {
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(1, '#ddd');
+            }
+
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.fill();
+            ctx.shadowColor = 'transparent'; // Reset
+        }
+
+        // --- Logic ---
+
+        function checkWin(r, c, player) {
+            const directions = [
+                [1, 0],  // Horizontal
+                [0, 1],  // Vertical
+                [1, 1],  // Diagonal \
+                [1, -1]  // Diagonal /
+            ];
+
+            for (const [dx, dy] of directions) {
+                let count = 1;
+
+                // Positive direction
+                let i = 1;
+                while (true) {
+                    const nr = r + i * dy;
+                    const nc = c + i * dx;
+                    if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || board[nr][nc] !== player) break;
+                    count++;
+                    i++;
+                }
+
+                // Negative direction
+                i = 1;
+                while (true) {
+                    const nr = r - i * dy;
+                    const nc = c - i * dx;
+                    if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || board[nr][nc] !== player) break;
+                    count++;
+                    i++;
+                }
+
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+
+        function handleInput(e) {
+            if (!gameActive || isThinking) return;
+            if (gameMode === 'pve' && currentPlayer === WHITE) return; // Wait for AI
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const cs = getCellSize();
+            const margin = cs;
+
+            // Convert to grid coords with simple rounding
+            // The grid lines are at margin + i * cs
+            // Closest line index = Math.round((pos - margin) / cs)
+
+            const c = Math.round((x - margin) / cs);
+            const r = Math.round((y - margin) / cs);
+
+            // Validation
+            if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE && board[r][c] === EMPTY) {
+                makeMove(r, c);
+            }
+        }
+
+        function makeMove(r, c) {
+            board[r][c] = currentPlayer;
+            lastMove = [r, c];
+            drawBoard();
+
+            if (checkWin(r, c, currentPlayer)) {
+                gameActive = false;
+                showWinModal(currentPlayer);
+                return;
+            }
+
+            if (getAvailableMoves(board).length === 0) {
+                gameActive = false;
+                showWinModal(0); // Draw
+                return;
+            }
+
+            currentPlayer = currentPlayer === BLACK ? WHITE : BLACK;
+            updateStatus();
+
+            // AI Turn
+            if (gameActive && gameMode === 'pve' && currentPlayer === WHITE) {
+                isThinking = true;
+                statusEl.textContent = "電腦思考中...";
+                // Use timeout to allow UI to render first
+                setTimeout(() => {
+                    makeAIMove();
+                    isThinking = false;
+                }, 100); // Small delay for visual feedback
+            }
+        }
+
+        // --- AI Engine ---
+
+        /**
+         * Heuristic Evaluation Scores
+         */
+        const SCORES = {
+            WIN5: 1000000,
+            LIVE4: 50000,   // _AAAA_
+            DEAD4: 5000,    // _AAAAX or XAAAA_
+            LIVE3: 5000,    // _AAA_
+            DEAD3: 1000,    // _AAAX
+            LIVE2: 500,     // _AA_
+            DEAD2: 100,     // _AAX
+            SINGLE: 10
+        };
+
+        function getAvailableMoves(tempBoard) {
+            // Optimization: Only return empty spots near existing pieces (radius 2)
+            // If board is empty, return center
+            let moves = new Set();
+            let hasPiece = false;
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (tempBoard[r][c] !== EMPTY) {
+                        hasPiece = true;
+                        for (let br = Math.max(0, r - 2); br <= Math.min(BOARD_SIZE - 1, r + 2); br++) {
+                            for (let bc = Math.max(0, c - 2); bc <= Math.min(BOARD_SIZE - 1, c + 2); bc++) {
+                                if (tempBoard[br][bc] === EMPTY) {
+                                    moves.add(br * BOARD_SIZE + bc);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!hasPiece) return [[7, 7]];
+
+            return Array.from(moves).map(idx => [Math.floor(idx / BOARD_SIZE), idx % BOARD_SIZE]);
+        }
+
+        function evaluateLine(count, openEnds, currentPieceType) {
+            if (count >= 5) return SCORES.WIN5;
+            if (count === 4) {
+                if (openEnds === 2) return SCORES.LIVE4;
+                if (openEnds === 1) return SCORES.DEAD4;
+            }
+            if (count === 3) {
+                if (openEnds === 2) return SCORES.LIVE3;
+                if (openEnds === 1) return SCORES.DEAD3;
+            }
+            if (count === 2) {
+                if (openEnds === 2) return SCORES.LIVE2;
+                if (openEnds === 1) return SCORES.DEAD2;
+            }
+            return SCORES.SINGLE;
+        }
+
+        function evaluateBoard(tempBoard, player) {
+            let score = 0;
+            const opponent = player === BLACK ? WHITE : BLACK;
+
+            // Scan all 4 directions
+            // Can optimize by not scanning full board every time, but for JS simplicity we scan lines
+            // To make it faster, we perform a simplified scan or incremental update in a C++ engine
+            // Here we will do a full scan but optimized loop.
+
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
+            // We need to count patterns for both players
+            // My Score - Opponent Score * Ratio (Defensive ratio)
+
+            let myScore = 0;
+            let opScore = 0;
+
+            // Function to scan a specific cell's impact
+            // Actually full board scan is safer for accuracy
+            // Vertical, Horizontal, Diagonals
+
+            // Helper to score a line segment
+            const scoreVector = (r, c, dr, dc) => {
+                let p = tempBoard[r][c];
+                if (p === EMPTY) return;
+
+                // Check if we already counted this line (to avoid double counting, difficult in full scan)
+                // Correction: Just scan strips.
+            };
+
+            // Better approach: Scan all horizontal lines, all vertical lines, etc.
+            const lines = [];
+
+            // Horizontal
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                let row = [];
+                for (let c = 0; c < BOARD_SIZE; c++) row.push(tempBoard[r][c]);
+                lines.push(row);
+            }
+            // Vertical
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let col = [];
+                for (let r = 0; r < BOARD_SIZE; r++) col.push(tempBoard[r][c]);
+                lines.push(col);
+            }
+            // Diagonals... (omitted for brevity in this comment block, will implement in logic below)
+            // Actually generating "strings" of lines is expensive.
+            // Let's use the local evaluation function at each point for pattern matching.
+
+            return getDetailedScore(tempBoard, player) - getDetailedScore(tempBoard, opponent) * 1.2;
+        }
+
+        function getDetailedScore(tempBoard, player) {
+            let totalScore = 0;
+
+            // Horizontal
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (tempBoard[r][c] === player) {
+                        // Check right
+                        if (c + 4 < BOARD_SIZE && tempBoard[r][c + 1] === player && tempBoard[r][c + 2] === player && tempBoard[r][c + 3] === player && tempBoard[r][c + 4] === player) return SCORES.WIN5;
+                    }
+                }
+            }
+
+            // This is too slow/complex to implement perfectly in one-shot JS without bugs.
+            // Let's use a simpler heuristic for JS: Pattern Matching around empty cells or specific lines.
+
+            // Optimized Evaluate:
+            let score = 0;
+            const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (tempBoard[r][c] === player) {
+                        // Check immediate patterns starting here to avoid double counting
+                        // We only check "forward" to count each sequence once
+                        for (let [dr, dc] of dirs) {
+                            // Only check if previous cell was NOT player (start of sequence)
+                            if (r - dr >= 0 && c - dc >= 0 && r - dr < BOARD_SIZE && c - dc < BOARD_SIZE && tempBoard[r - dr][c - dc] === player) continue;
+
+                            let count = 0;
+                            let block = 0;
+
+                            // Check range
+                            let k = 0;
+                            while (r + k * dr >= 0 && r + k * dr < BOARD_SIZE && c + k * dc >= 0 && c + k * dc < BOARD_SIZE && tempBoard[r + k * dr][c + k * dc] === player) {
+                                count++;
+                                k++;
+                            }
+
+                            // Check ends
+                            // Start end (backward)
+                            if (r - dr < 0 || c - dc < 0 || r - dr >= BOARD_SIZE || c - dc >= BOARD_SIZE || tempBoard[r - dr][c - dc] !== EMPTY) block++;
+                            // End end (forward)
+                            if (r + k * dr < 0 || c + k * dc < 0 || r + k * dr >= BOARD_SIZE || c + k * dc >= BOARD_SIZE || tempBoard[r + k * dr][c + k * dc] !== EMPTY) block++;
+
+                            // Score
+                            if (block === 0) {
+                                if (count >= 5) score += SCORES.WIN5;
+                                else if (count === 4) score += SCORES.LIVE4;
+                                else if (count === 3) score += SCORES.LIVE3;
+                                else if (count === 2) score += SCORES.LIVE2;
+                            } else if (block === 1) {
+                                if (count >= 5) score += SCORES.WIN5;
+                                else if (count === 4) score += SCORES.DEAD4;
+                                else if (count === 3) score += SCORES.DEAD3;
+                                else if (count === 2) score += SCORES.DEAD2;
+                            }
+                        }
+                    }
+                }
+            }
+            return score;
+        }
+
+        function minimax(tempBoard, depth, alpha, beta, isMaximizing, player) {
+            const opp = player === BLACK ? WHITE : BLACK;
+
+            // Check terminal
+            const aiScore = getDetailedScore(tempBoard, player);
+            const humanScore = getDetailedScore(tempBoard, opp);
+
+            if (aiScore >= SCORES.WIN5) return SCORES.WIN5; // AI Wins
+            if (humanScore >= SCORES.WIN5) return -SCORES.WIN5; // Human Wins (bad for AI)
+
+            if (depth === 0) {
+                return aiScore - humanScore * 1.5; // Weight defense slightly higher
+            }
+
+            const moves = getAvailableMoves(tempBoard);
+            if (moves.length === 0) return 0;
+
+            // Move Ordering: Evaluate simple score to sort moves? (Skipped for performance in JS)
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (const [r, c] of moves) {
+                    tempBoard[r][c] = player;
+                    const eval = minimax(tempBoard, depth - 1, alpha, beta, false, player);
+                    tempBoard[r][c] = EMPTY;
+                    maxEval = Math.max(maxEval, eval);
+                    alpha = Math.max(alpha, eval);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (const [r, c] of moves) {
+                    tempBoard[r][c] = opp; // Human move
+                    const eval = minimax(tempBoard, depth - 1, alpha, beta, true, player);
+                    tempBoard[r][c] = EMPTY;
+                    minEval = Math.min(minEval, eval);
+                    beta = Math.min(beta, eval);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        function makeAIMove() {
+            let bestScore = -Infinity;
+            let bestMove = null;
+
+            // Config based on Difficulty
+            let depth = 1; // Easy
+            if (difficulty === 'medium') depth = 2;
+            if (difficulty === 'hard') depth = 3; // In JS, depth 4 on 15x15 is very slow without heavy optimization
+            // Note: Since we restricted move generation to neighbors, depth 3 is feasible.
+
+            const moves = getAvailableMoves(board);
+
+            // First pass: Check for immediate kill or save (Depth 1 check)
+            // Always prioritize winning or blocking a win immediately
+            for (const [r, c] of moves) {
+                board[r][c] = WHITE;
+                if (getDetailedScore(board, WHITE) >= SCORES.WIN5) {
+                    makeMove(r, c); return;
+                }
+                board[r][c] = EMPTY;
+
+                board[r][c] = BLACK;
+                if (getDetailedScore(board, BLACK) >= SCORES.WIN5) {
+                    // Must block!
+                    board[r][c] = WHITE; // Actually do the move
+                    makeMove(r, c); return;
+                }
+                board[r][c] = EMPTY;
+            }
+
+            // Minimax Search
+            // Randomize order to add variety if scores are equal
+            moves.sort(() => Math.random() - 0.5);
+
+            let alpha = -Infinity;
+            let beta = Infinity;
+
+            // Iterative Deepening / Root Parallelism (simulated)
+            for (const [r, c] of moves) {
+                board[r][c] = WHITE;
+
+                // If hard, check slightly deeper for the first level
+                let score = minimax(board, depth - 1, alpha, beta, false, WHITE);
+
+                // Slight position bias for center (heuristic)
+                const centerDist = Math.abs(r - 7) + Math.abs(c - 7);
+                score -= centerDist;
+
+                board[r][c] = EMPTY;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = [r, c];
+                }
+                // Alpha update at root
+                alpha = Math.max(alpha, score);
+            }
+
+            if (bestMove) {
+                makeMove(bestMove[0], bestMove[1]);
+            } else {
+                // Fallback
+                const [r, c] = moves[0];
+                makeMove(r, c);
+            }
+        }
+
+        // --- UI Logic ---
+        function updateStatus() {
+            if (!gameActive) {
+                statusEl.textContent = "遊戲結束";
+                return;
+            }
+            const color = currentPlayer === BLACK ? "⚫" : "⚪";
+            const name = (gameMode === 'pve' && currentPlayer === WHITE) ? "電腦" : "玩家";
+            statusEl.textContent = `${name} (${color}) 回合`;
+        }
+
+        function showWinModal(winner) {
+            modalEl.style.display = 'flex';
+            if (winner === 0) {
+                winnerTitle.textContent = "和局！";
+                winnerMsg.textContent = "不分勝負";
+                statusEl.textContent = "和局";
+            } else {
+                const name = winner === BLACK ? "黑棋" : "白棋";
+                const symbol = winner === BLACK ? "⚫" : "⚪";
+                winnerTitle.textContent = `${name} 勝出！`;
+                winnerMsg.textContent = `恭喜 ${name} ${symbol} 贏得本局`;
+                statusEl.textContent = `${name} 勝出`;
+            }
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        function closeModal() {
+            modalEl.style.display = 'none';
+        }
+
+        // Inputs
+        canvas.addEventListener('mousedown', handleInput);
+        // canvas.addEventListener('touchstart', (e) => { // Handled by simple mousedown for now due to mapping, or add dedicated
+        //     e.preventDefault();
+        //     const touch = e.touches[0];
+        //     const mouseEvent = new MouseEvent("mousedown", {
+        //         clientX: touch.clientX,
+        //         clientY: touch.clientY
+        //     });
+        //     canvas.dispatchEvent(mouseEvent);
+        // }, {passive: false});
+
+        document.getElementById('start-btn').addEventListener('click', initGame);
+        document.getElementById('difficulty-select').addEventListener('change', (e) => {
+            difficulty = e.target.value;
+            initGame();
+        });
+        document.getElementById('mode-select').addEventListener('change', (e) => {
+            gameMode = e.target.value;
+            // Show/Hide difficulty
+            document.getElementById('difficulty-select').style.display = gameMode === 'pve' ? 'block' : 'none';
+            initGame();
+        });
+        document.getElementById('mode-select').dispatchEvent(new Event('change')); // Init visibility
+
+        window.addEventListener('resize', () => {
+            resizeBoard();
+        });
+
+        // Start
+        initGame();
+
+    </script>
+</body>
+
+</html>

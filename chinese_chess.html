@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中國象棋 - Chinese Chess</title>
+    <style>
+        :root {
+            --bg-color: #2c3e50;
+            --board-bg: #e6b36f;
+            --line-color: #5c3a21;
+            --highlight: rgba(255, 255, 255, 0.4);
+            --selected: rgba(0, 255, 0, 0.3);
+            --last-move: rgba(0, 0, 255, 0.3);
+            --valid-move: rgba(0, 255, 0, 0.5);
+            --text-color: #ecf0f1;
+            --panel-bg: rgba(0, 0, 0, 0.3);
+            --btn-color: #8d6e63;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Noto Serif TC', 'SimSun', serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            /* Prevent scrolling if possible */
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        /* Layout */
+        .main-content {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .side-panel {
+            flex: 1;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 280px;
+            height: fit-content;
+            text-align: left;
+            display: none;
+            /* Hidden on mobile initially */
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .side-panel h3 {
+            color: #f1c40f;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 5px;
+        }
+
+        .side-panel p {
+            margin-bottom: 10px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            color: #ccc;
+        }
+
+        .center-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        select,
+        button {
+            padding: 8px 16px;
+            font-size: 0.95rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        button {
+            background: var(--btn-color);
+            color: white;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.primary {
+            background: #27ae60;
+        }
+
+        button.restart {
+            background: #c0392b;
+        }
+
+        /* Board */
+        #game-board-container {
+            position: relative;
+            padding: 8px;
+            background: #5c3a21;
+            border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        canvas {
+            display: block;
+            background: var(--board-bg);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 8px 24px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #fff;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            width: 320px;
+            animation: popIn 0.3s ease-out;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal h2 {
+            margin-bottom: 15px;
+            color: #c0392b;
+        }
+
+        .modal button {
+            margin: 5px;
+        }
+
+        /* Responsive */
+        @media (min-width: 1024px) {
+            .side-panel {
+                display: block;
+            }
+        }
+
+        @media (max-width: 1023px) {
+            .container {
+                padding-top: 10px;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .side-panel {
+                display: block;
+                width: 95%;
+                max-width: 500px;
+                /* Wider for mobile stack */
+                order: 3;
+                /* Move to bottom */
+            }
+
+            .center-panel {
+                order: 1;
+            }
+
+            /* Specific ordering: Title -> Board -> Controls -> Status -> Rules */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>中國象棋</h1>
+
+        <div class="main-content">
+            <!-- Left Panel -->
+            <div class="side-panel">
+                <h3>遊戲規則</h3>
+                <p>1. <b>紅先行，黑後行</b>。</p>
+                <p>2. <b>馬走日</b>：馬走一步直，一步斜，有「絆馬腳」限制。</p>
+                <p>3. <b>象走田</b>：象飛田字，不過河，有「塞象眼」限制。</p>
+                <p>4. <b>炮翻山</b>：炮吃子時需隔一子。</p>
+                <p>5. <b>將帥不見面</b>：將與帥在同一直線上不能直接對視。</p>
+            </div>
+
+            <!-- Center Panel -->
+            <div class="center-panel">
+                <div class="controls">
+                    <select id="mode-select">
+                        <option value="pve">人機對戰 (PvE)</option>
+                        <option value="pvp">雙人對戰 (PvP)</option>
+                    </select>
+                    <select id="difficulty-select">
+                        <option value="1">簡單 (Easy)</option>
+                        <option value="2" selected>中等 (Medium)</option>
+                        <option value="3">困難 (Hard)</option>
+                    </select>
+                    <button class="primary" id="restart-btn">重新開始</button>
+                </div>
+
+                <div id="game-board-container">
+                    <canvas id="board"></canvas>
+                </div>
+
+                <div class="status" id="status">紅方思考中...</div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="side-panel">
+                <h3>操作指南</h3>
+                <p>• 點擊棋子選中（綠色光圈）。</p>
+                <p>• 點擊目標位置移動。</p>
+                <p>• 紅色為玩家/先手。</p>
+                <p>• <b>難度提示</b>：困難模式電腦會思考較久（約 1-2 秒），請耐心等待。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">遊戲結束</h2>
+            <p id="modal-msg"></p>
+            <button class="primary" onclick="initGame()">再來一局</button>
+            <button class="restart" onclick="closeModal()">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Constants ---
+        const ROWS = 10;
+        const COLS = 9;
+        const RED = 1;
+        const BLACK = -1;
+        const EMPTY = 0;
+
+        // Piece Types
+        const KING = 1; // 將/帥
+        const ADVISOR = 2; // 士/仕
+        const ELEPHANT = 3; // 象/相
+        const HORSE = 4; // 馬/傌
+        const CHARIOT = 5; // 車/俥
+        const CANNON = 6; // 炮/砲
+        const SOLDIER = 7; // 卒/兵
+
+        // Piece Values for AI
+        const PIECE_VALUES = {
+            [KING]: 10000,
+            [ADVISOR]: 20,
+            [ELEPHANT]: 20,
+            [HORSE]: 400,
+            [CHARIOT]: 900,
+            [CANNON]: 450,
+            [SOLDIER]: 10
+        };
+
+        // --- State ---
+        let board = [];
+        let turn = RED; // Red moves first
+        let selected = null; // {r, c}
+        let lastMove = null; // {from: {r,c}, to: {r,c}}
+        let gameActive = false;
+        let mode = 'pve';
+        let difficulty = 2; // 1, 2, 3
+        let isAIThinking = false;
+
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+
+        // --- Responsive Sizing ---
+        let CELL_SIZE = 50;
+        let MARGIN = 30;
+
+        function resize() {
+            const hAvailable = window.innerHeight - 200; // Account for UI
+            const wAvailable = window.innerWidth - 40;
+
+            // Aspect ratio for board is approx 9/10
+            const maxCellH = Math.floor((hAvailable - 40) / 10);
+            const maxCellW = Math.floor((wAvailable - 40) / 9);
+
+            // Clamp
+            CELL_SIZE = Math.min(60, Math.max(30, Math.min(maxCellH, maxCellW)));
+            MARGIN = CELL_SIZE / 1.5;
+
+            canvas.width = COLS * CELL_SIZE + MARGIN * 2;
+            canvas.height = ROWS * CELL_SIZE + MARGIN * 2;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // --- Piece Characters ---
+        const CHARS = {
+            [RED]: {
+                [KING]: '帥', [ADVISOR]: '仕', [ELEPHANT]: '相', [HORSE]: '傌',
+                [CHARIOT]: '俥', [CANNON]: '砲', [SOLDIER]: '兵'
+            },
+            [BLACK]: {
+                [KING]: '將', [ADVISOR]: '士', [ELEPHANT]: '象', [HORSE]: '馬',
+                [CHARIOT]: '車', [CANNON]: '炮', [SOLDIER]: '卒'
+            }
+        };
+
+        // --- Game Logic ---
+        function initGame() {
+            // Init board
+            board = Array(ROWS).fill().map(() => Array(COLS).fill(null));
+
+            const setup = (row, side, type) => {
+                // Rooks
+                board[row][0] = { type: CHARIOT, side }; board[row][8] = { type: CHARIOT, side };
+                // Horses
+                board[row][1] = { type: HORSE, side }; board[row][7] = { type: HORSE, side };
+                // Elephants
+                board[row][2] = { type: ELEPHANT, side }; board[row][6] = { type: ELEPHANT, side };
+                // Advisors
+                board[row][3] = { type: ADVISOR, side }; board[row][5] = { type: ADVISOR, side };
+                // King
+                board[row][4] = { type: KING, side };
+                // Cannons
+                const cannonRow = row === 0 ? 2 : 7;
+                board[cannonRow][1] = { type: CANNON, side }; board[cannonRow][7] = { type: CANNON, side };
+                // Soldiers
+                const soldierRow = row === 0 ? 3 : 6;
+                for (let i = 0; i <= 8; i += 2) board[soldierRow][i] = { type: SOLDIER, side };
+            };
+
+            setup(0, BLACK, -1);
+            setup(9, RED, 1);
+
+            turn = RED;
+            selected = null;
+            lastMove = null;
+            gameActive = true;
+            isAIThinking = false;
+
+            updateStatus();
+            document.getElementById('modal').style.display = 'none';
+            draw();
+        }
+
+        function isValidMove(r1, c1, r2, c2, b = board) {
+            if (r2 < 0 || r2 >= ROWS || c2 < 0 || c2 >= COLS) return false;
+            const p = b[r1][c1];
+            const target = b[r2][c2];
+
+            // Cannot capture own piece
+            if (target && target.side === p.side) return false;
+
+            const dr = r2 - r1;
+            const dc = c2 - c1;
+            const absDr = Math.abs(dr);
+            const absDc = Math.abs(dc);
+
+            switch (p.type) {
+                case KING:
+                    // Orthogonal 1 step, must be in palace
+                    if (absDr + absDc !== 1) return false;
+                    if (c2 < 3 || c2 > 5) return false;
+                    if (p.side === RED && r2 < 7) return false;
+                    if (p.side === BLACK && r2 > 2) return false;
+                    return true;
+
+                case ADVISOR:
+                    // Diagonal 1 step, in palace
+                    if (absDr !== 1 || absDc !== 1) return false;
+                    if (c2 < 3 || c2 > 5) return false;
+                    if (p.side === RED && r2 < 7) return false;
+                    if (p.side === BLACK && r2 > 2) return false;
+                    return true;
+
+                case ELEPHANT:
+                    // Diagonal 2 steps, cannot cross river, blocking eye
+                    if (absDr !== 2 || absDc !== 2) return false;
+                    if (p.side === RED && r2 < 5) return false; // Red cannot cross
+                    if (p.side === BLACK && r2 > 4) return false; // Black cannot cross
+                    if (b[r1 + dr / 2][c1 + dc / 2]) return false; // Eye blocked
+                    return true;
+
+                case HORSE:
+                    // "Sun" shape, blocking leg
+                    if (!((absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2))) return false;
+                    // Leg check
+                    if (absDr === 2) { // Vertical move
+                        if (b[r1 + Math.sign(dr)][c1]) return false;
+                    } else { // Horizontal move
+                        if (b[r1][c1 + Math.sign(dc)]) return false;
+                    }
+                    return true;
+
+                case CHARIOT:
+                    // Straight line, no obstacles
+                    if (r1 !== r2 && c1 !== c2) return false;
+                    if (countObstacles(r1, c1, r2, c2, b) !== 0) return false;
+                    return true;
+
+                case CANNON:
+                    // Straight Line. Move needs 0 obstacles, Capture needs 1 obstacle (screen)
+                    if (r1 !== r2 && c1 !== c2) return false;
+                    const obstacles = countObstacles(r1, c1, r2, c2, b);
+                    if (!target) {
+                        return obstacles === 0;
+                    } else {
+                        return obstacles === 1;
+                    }
+
+                case SOLDIER:
+                    // Forward 1 step. After river, can also side 1 step.
+                    const forward = p.side === RED ? -1 : 1;
+                    // Before river
+                    const crossedRiver = p.side === RED ? r1 <= 4 : r1 >= 5;
+
+                    if (crossedRiver) {
+                        // Forward or Side 1 step
+                        if (absDr + absDc !== 1) return false;
+                        if (dr === -forward) return false; // No backward
+                    } else {
+                        // Only forward
+                        if (dr !== forward || dc !== 0) return false;
+                    }
+                    return true;
+            }
+            return false;
+        }
+
+        function countObstacles(r1, c1, r2, c2, b) {
+            let count = 0;
+            if (r1 === r2) { // Horizontal
+                const minC = Math.min(c1, c2);
+                const maxC = Math.max(c1, c2);
+                for (let c = minC + 1; c < maxC; c++) {
+                    if (b[r1][c]) count++;
+                }
+            } else { // Vertical
+                const minR = Math.min(r1, r2);
+                const maxR = Math.max(r1, r2);
+                for (let r = minR + 1; r < maxR; r++) {
+                    if (b[r][c1]) count++;
+                }
+            }
+            return count;
+        }
+
+        // Special Rule: Flying General
+        // Verify kings can't see each other after a move
+        function isFlyingGeneral(b = board) {
+            let redKing, blackKing;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const p = b[r][c];
+                    if (p && p.type === KING) {
+                        if (p.side === RED) redKing = { r, c };
+                        else blackKing = { r, c };
+                    }
+                }
+            }
+            if (!redKing || !blackKing) return false; // Should not happen
+            if (redKing.c !== blackKing.c) return false;
+
+            // Same column, check obstacles
+            const obs = countObstacles(redKing.r, redKing.c, blackKing.r, blackKing.c, b);
+            return obs === 0;
+        }
+
+        function getValidMoves(side, b = board) {
+            let moves = [];
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const p = b[r][c];
+                    if (p && p.side === side) {
+                        // Check all spots
+                        // Optimization: Check logical targets based on piece type
+                        // For brevity, using brute force bounds or simple logic here
+                        // Actually, let's just optimize iteration for Chariot/Cannon etc.
+                        // But iterating all board spots is easier to code safely.
+                        for (let tr = 0; tr < ROWS; tr++) {
+                            for (let tc = 0; tc < COLS; tc++) {
+                                if (isValidMove(r, c, tr, tc, b)) {
+                                    // Simulate move to check Flying General
+                                    const saved = b[tr][tc];
+                                    b[tr][tc] = b[r][c];
+                                    b[r][c] = null;
+
+                                    if (!isFlyingGeneral(b)) {
+                                        moves.push({ from: { r, c }, to: { r: tr, c: tc } });
+                                    }
+
+                                    // Restore
+                                    b[r][c] = b[tr][tc];
+                                    b[tr][tc] = saved;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+
+        // --- AI ---
+        function evaluate(b) {
+            let score = 0;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const p = b[r][c];
+                    if (p) {
+                        let val = PIECE_VALUES[p.type];
+                        // Position bonuses (simple)
+                        if (p.type === SOLDIER) {
+                            if ((p.side === RED && r <= 4) || (p.side === BLACK && r >= 5)) val += 20; // Crossed river
+                        }
+                        score += p.side * val;
+                    }
+                }
+            }
+            return score;
+        }
+
+        function minimax(depth, alpha, beta, isMaximizing) {
+            if (depth === 0) return evaluate(board);
+
+            const side = isMaximizing ? RED : BLACK;
+            const moves = getValidMoves(side, board);
+
+            // Checkmate?
+            const king = findKing(side);
+            if (!king) return isMaximizing ? -100000 : 100000; // King captured logic (though rules prevent this, good fallback)
+            if (moves.length === 0) return isMaximizing ? -20000 : 20000; // Stalemate/Checkmate
+
+            // Move Ordering
+            moves.sort((a, b) => {
+                // Prioritize captures
+                const targetA = board[a.to.r][a.to.c];
+                const targetB = board[b.to.r][b.to.c];
+                const scoreA = targetA ? PIECE_VALUES[targetA.type] : 0;
+                const scoreB = targetB ? PIECE_VALUES[targetB.type] : 0;
+                return scoreB - scoreA;
+            });
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let m of moves) {
+                    const saved = board[m.to.r][m.to.c];
+                    board[m.to.r][m.to.c] = board[m.from.r][m.from.c];
+                    board[m.from.r][m.from.c] = null;
+
+                    const ev = minimax(depth - 1, alpha, beta, false);
+
+                    // Undo
+                    board[m.from.r][m.from.c] = board[m.to.r][m.to.c];
+                    board[m.to.r][m.to.c] = saved;
+
+                    maxEval = Math.max(maxEval, ev);
+                    alpha = Math.max(alpha, ev);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let m of moves) {
+                    const saved = board[m.to.r][m.to.c];
+                    board[m.to.r][m.to.c] = board[m.from.r][m.from.c];
+                    board[m.from.r][m.from.c] = null;
+
+                    const ev = minimax(depth - 1, alpha, beta, true);
+
+                    // Undo
+                    board[m.from.r][m.from.c] = board[m.to.r][m.to.c];
+                    board[m.to.r][m.to.c] = saved;
+
+                    minEval = Math.min(minEval, ev);
+                    beta = Math.min(beta, ev);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        function findKing(side) {
+            for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+                if (board[r][c] && board[r][c].type === KING && board[r][c].side === side) return { r, c };
+            }
+            return null;
+        }
+
+        function aiMove() {
+            // Deep copy not needed if we undo correctly
+            const moves = getValidMoves(BLACK, board);
+            if (moves.length === 0) {
+                gameOver(RED);
+                return;
+            }
+
+            let bestMove = null;
+            let bestVal = Infinity;
+
+            let depth = parseInt(difficulty);
+            // Simple adaptive: endgame deeper? for now static
+
+            // Count pieces for simple progress
+
+            for (let m of moves) {
+                const saved = board[m.to.r][m.to.c];
+                board[m.to.r][m.to.c] = board[m.from.r][m.from.c];
+                board[m.from.r][m.from.c] = null;
+
+                // AI is minimizing (Black)
+                let val = minimax(depth, -Infinity, Infinity, true);
+
+                // Undo
+                board[m.from.r][m.from.c] = board[m.to.r][m.to.c];
+                board[m.to.r][m.to.c] = saved;
+
+                if (val < bestVal) {
+                    bestVal = val;
+                    bestMove = m;
+                }
+            }
+
+            if (bestMove) {
+                executeMove(bestMove.from, bestMove.to);
+            } else {
+                // No moves?
+                gameOver(RED);
+            }
+            isAIThinking = false;
+            updateStatus();
+        }
+
+        function executeMove(from, to) {
+            const p = board[from.r][from.c];
+            const target = board[to.r][to.c];
+
+            board[to.r][to.c] = p;
+            board[from.r][from.c] = null;
+            lastMove = { from, to };
+
+            // Sound effect (optional, simplified)
+
+            // Check win (King capture should technically not happen by moves, but checkmate logic handles it)
+            // Here we just check valid moves next turn.
+
+            turn = turn === RED ? BLACK : RED;
+            draw(); // <--- Added draw() here to ensure UI updates immediately
+            updateStatus();
+
+            // Check Game Over (No moves for next player)
+            if (getValidMoves(turn, board).length === 0) {
+                gameOver(turn === RED ? BLACK : RED);
+                return;
+            }
+
+            if (mode === 'pve' && turn === BLACK && gameActive) {
+                isAIThinking = true;
+                updateStatus();
+                setTimeout(aiMove, 100);
+            }
+        }
+
+        function gameOver(winner) {
+            gameActive = false;
+            const msg = winner === RED ? "紅方勝出！" : "黑方勝出！";
+            document.getElementById('modal-title').textContent = "遊戲結束";
+            document.getElementById('modal-msg').textContent = msg;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function handleClick(e) {
+            if (!gameActive || isAIThinking) return;
+            if (mode === 'pve' && turn === BLACK) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Map to grid
+            // x = c * CELL_SIZE + MARGIN;
+            // c = (x - MARGIN) / CELL_SIZE
+            // Use Math.round for tolerance
+            const c = Math.round((x - MARGIN) / CELL_SIZE);
+            const r = Math.round((y - MARGIN) / CELL_SIZE);
+
+            if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+
+            // Selection
+            if (selected) {
+                // Try move
+                if (isValidMove(selected.r, selected.c, r, c, board)) {
+                    // Check Flying General simulation
+                    const saved = board[r][c];
+                    board[r][c] = board[selected.r][selected.c];
+                    board[selected.r][selected.c] = null;
+                    const flying = isFlyingGeneral(board);
+                    // Undo
+                    board[selected.r][selected.c] = board[r][c];
+                    board[r][c] = saved;
+
+                    if (!flying) {
+                        executeMove(selected, { r, c });
+                        selected = null;
+                        // draw() is now called inside executeMove
+                        return;
+                    } else {
+                        // Invalid due to royal rule
+                        // Flash feedback?
+                    }
+                }
+
+                // Reselect?
+                const clickedP = board[r][c];
+                if (clickedP && clickedP.side === turn) {
+                    selected = { r, c };
+                } else {
+                    // Click empty or enemy -> invalid -> deselect
+                    selected = null;
+                }
+            } else {
+                const p = board[r][c];
+                if (p && p.side === turn) {
+                    selected = { r, c };
+                }
+            }
+            draw();
+        }
+
+        // --- Drawing ---
+        function draw() {
+            // Clear
+            ctx.fillStyle = '#e6b36f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#5c3a21';
+            ctx.beginPath();
+
+            // Vertical lines (half board)
+            for (let c = 0; c < COLS; c++) {
+                const x = MARGIN + c * CELL_SIZE;
+                ctx.moveTo(x, MARGIN);
+                ctx.lineTo(x, MARGIN + 4 * CELL_SIZE); // Top half
+                ctx.moveTo(x, MARGIN + 5 * CELL_SIZE);
+                ctx.lineTo(x, MARGIN + 9 * CELL_SIZE); // Bottom half
+            }
+            // Horizontal lines (full)
+            for (let r = 0; r < ROWS; r++) {
+                const y = MARGIN + r * CELL_SIZE;
+                ctx.moveTo(MARGIN, y);
+                ctx.lineTo(MARGIN + 8 * CELL_SIZE, y);
+            }
+            // Side vertical lines connector
+            ctx.moveTo(MARGIN, MARGIN + 4 * CELL_SIZE);
+            ctx.lineTo(MARGIN, MARGIN + 5 * CELL_SIZE);
+            ctx.moveTo(MARGIN + 8 * CELL_SIZE, MARGIN + 4 * CELL_SIZE);
+            ctx.lineTo(MARGIN + 8 * CELL_SIZE, MARGIN + 5 * CELL_SIZE);
+
+            // Palaces (X shapes)
+            // Red Palace (Bottom)
+            ctx.moveTo(MARGIN + 3 * CELL_SIZE, MARGIN + 9 * CELL_SIZE);
+            ctx.lineTo(MARGIN + 5 * CELL_SIZE, MARGIN + 7 * CELL_SIZE);
+            ctx.moveTo(MARGIN + 5 * CELL_SIZE, MARGIN + 9 * CELL_SIZE);
+            ctx.lineTo(MARGIN + 3 * CELL_SIZE, MARGIN + 7 * CELL_SIZE);
+
+            // Black Palace (Top)
+            ctx.moveTo(MARGIN + 3 * CELL_SIZE, MARGIN);
+            ctx.lineTo(MARGIN + 5 * CELL_SIZE, MARGIN + 2 * CELL_SIZE);
+            ctx.moveTo(MARGIN + 5 * CELL_SIZE, MARGIN);
+            ctx.lineTo(MARGIN + 3 * CELL_SIZE, MARGIN + 2 * CELL_SIZE);
+
+            ctx.stroke();
+
+            // River Text
+            ctx.save();
+            ctx.translate(canvas.width / 2, MARGIN + 4.5 * CELL_SIZE);
+            ctx.font = `bold ${CELL_SIZE * 0.6}px 'Noto Serif TC'`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#5c3a21';
+            ctx.fillText("楚 河             漢 界", 0, 0);
+            ctx.restore();
+
+            // Selected & Last Move Highlights
+            if (lastMove) {
+                ctx.fillStyle = 'rgba(0,0,255,0.2)';
+                const x1 = MARGIN + lastMove.from.c * CELL_SIZE;
+                const y1 = MARGIN + lastMove.from.r * CELL_SIZE;
+                const x2 = MARGIN + lastMove.to.c * CELL_SIZE;
+                const y2 = MARGIN + lastMove.to.r * CELL_SIZE;
+                ctx.beginPath();
+                ctx.arc(x1, y1, CELL_SIZE * 0.4, 0, Math.PI * 2);
+                ctx.arc(x2, y2, CELL_SIZE * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (selected) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                const x = MARGIN + selected.c * CELL_SIZE;
+                const y = MARGIN + selected.r * CELL_SIZE;
+                ctx.beginPath();
+                ctx.arc(x, y, CELL_SIZE * 0.45, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Draw hints? Optional, minimal for now
+            }
+
+            // Draw Pieces
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const p = board[r][c];
+                    if (p) drawPiece(r, c, p);
+                }
+            }
+        }
+
+        function drawPiece(r, c, p) {
+            const x = MARGIN + c * CELL_SIZE;
+            const y = MARGIN + r * CELL_SIZE;
+            const radius = CELL_SIZE * 0.4;
+
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+            // Wood gradient
+            const grad = ctx.createRadialGradient(x - 5, y - 5, 5, x, y, radius);
+            grad.addColorStop(0, '#f3dcb5');
+            grad.addColorStop(1, '#dcb588');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = p.side === RED ? '#c0392b' : '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Inner Ring
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 0.85, 0, Math.PI * 2);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Text
+            ctx.font = `bold ${radius}px 'Noto Serif TC', serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = p.side === RED ? '#c0392b' : '#2c3e50';
+
+            // Shadow (engraved effect)
+            ctx.shadowColor = 'rgba(255,255,255,0.5)';
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+
+            ctx.fillText(CHARS[p.side][p.type], x, y + 2); // Little adjustment
+
+            ctx.shadowColor = 'transparent';
+        }
+
+        function updateStatus() {
+            if (!gameActive) {
+                document.getElementById('status').textContent = "遊戲結束";
+                return;
+            }
+            if (isAIThinking) {
+                document.getElementById('status').textContent = "黑方(電腦) 思考中...";
+                return;
+            }
+            const t = turn === RED ? "紅方" : "黑方";
+            document.getElementById('status').textContent = `${t} 回合`;
+            document.getElementById('status').style.color = turn === RED ? '#ff9999' : '#ffffff';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // --- Inputs ---
+        canvas.addEventListener('mousedown', handleClick);
+        // Touch support via mapping
+
+        document.getElementById('restart-btn').addEventListener('click', initGame);
+        document.getElementById('mode-select').addEventListener('change', (e) => {
+            mode = e.target.value;
+            document.getElementById('difficulty-select').style.display = mode === 'pve' ? 'block' : 'none';
+            initGame();
+        });
+        document.getElementById('difficulty-select').addEventListener('change', (e) => {
+            difficulty = parseInt(e.target.value);
+            initGame();
+        });
+
+        // Font Loading Check (Optional optimization)
+        // For now simple load
+        resize();
+        initGame();
+
+    </script>
+</body>
+
+</html>

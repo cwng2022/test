@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雙人冰球 - Air Hockey</title>
+    <style>
+        :root {
+            --bg-color: #1a2a3a;
+            --table-color: #0d47a1;
+            --line-color: #ffffff;
+            --player1-color: #ff4444;
+            --player2-color: #44ff44;
+            --puck-color: #222222;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-color);
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a2a3a 0%, #0d1b2a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #startScreen h1 {
+            font-size: 3rem;
+            color: #fff;
+            text-shadow: 0 0 20px #00aaff;
+            margin-bottom: 20px;
+        }
+
+        #startScreen p {
+            color: #aaa;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #startBtn {
+            margin-top: 30px;
+            padding: 18px 50px;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #00aaff, #0066cc);
+            border: none;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 0 20px #00aaff;
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+
+        #startBtn:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Win Screen */
+        #winScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #winScreen h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+
+        #winScreen.player1-win h1 {
+            color: var(--player1-color);
+            text-shadow: 0 0 20px var(--player1-color);
+        }
+
+        #winScreen.player2-win h1 {
+            color: var(--player2-color);
+            text-shadow: 0 0 20px var(--player2-color);
+        }
+
+        #restartBtn {
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            background: #333;
+            border: 2px solid #fff;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            touch-action: manipulation;
+            pointer-events: auto;
+        }
+
+        #restartBtn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="startScreen">
+        <h1>🥅 雙人冰球</h1>
+        <p>兩位玩家各自控制一個冰球棍</p>
+        <p>用手指拖動冰球棍撞球入對方龍門</p>
+        <p>先得 7 分者勝出！</p>
+        <button id="startBtn">開始遊戲</button>
+    </div>
+
+    <div id="winScreen">
+        <h1 id="winText">玩家1 勝出！</h1>
+        <button id="restartBtn">再玩一次</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game State - MUST be defined before resize() is called
+        let gameRunning = false;
+        const WIN_SCORE = 7;
+        const FRICTION = 0.985;
+
+        // Colors
+        const PLAYER1_COLOR = '#ff4444';
+        const PLAYER2_COLOR = '#44ff44';
+        const PUCK_COLOR = '#222222';
+        const TABLE_COLOR = '#0d47a1';
+
+        // Dimensions (responsive)
+        function getMalletRadius() { return Math.min(canvas.width, canvas.height) * 0.06; }
+        function getPuckRadius() { return Math.min(canvas.width, canvas.height) * 0.04; }
+        function getGoalWidth() { return canvas.width * 0.35; }
+
+        // Game Objects - MUST be defined before resize() is called
+        const player1 = { x: 0, y: 0, vx: 0, vy: 0, lastX: 0, lastY: 0, score: 0, touchId: null };
+        const player2 = { x: 0, y: 0, vx: 0, vy: 0, lastX: 0, lastY: 0, score: 0, touchId: null };
+        const puck = { x: 0, y: 0, vx: 0, vy: 0 };
+
+        // Responsive sizing - called AFTER all variables are defined
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (gameRunning) resetPositions();
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        function resetPositions() {
+            const malletR = getMalletRadius();
+            player1.x = canvas.width / 2;
+            player1.y = canvas.height * 0.15;
+            player1.vx = player1.vy = 0;
+
+            player2.x = canvas.width / 2;
+            player2.y = canvas.height * 0.85;
+            player2.vx = player2.vy = 0;
+
+            resetPuck();
+        }
+
+        function resetPuck() {
+            puck.x = canvas.width / 2;
+            puck.y = canvas.height / 2;
+            // Give the puck an initial velocity towards a random player
+            const speed = 5;
+            puck.vx = (Math.random() - 0.5) * 3;
+            puck.vy = Math.random() < 0.5 ? speed : -speed;
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('winScreen').style.display = 'none';
+            player1.score = 0;
+            player2.score = 0;
+            resetPositions();
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showWinner(playerNum) {
+            gameRunning = false;
+            const winScreen = document.getElementById('winScreen');
+            const winText = document.getElementById('winText');
+            winScreen.className = playerNum === 1 ? 'player1-win' : 'player2-win';
+            winText.textContent = `玩家${playerNum} 勝出！`;
+            winScreen.style.display = 'flex';
+        }
+
+        // Touch Controls
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const malletR = getMalletRadius();
+
+            for (const touch of e.changedTouches) {
+                const touchY = touch.clientY;
+                const touchX = touch.clientX;
+
+                // Top half = Player 1, Bottom half = Player 2
+                if (touchY < canvas.height / 2 && player1.touchId === null) {
+                    player1.touchId = touch.identifier;
+                    // Immediately move mallet to touch position
+                    player1.lastX = player1.x;
+                    player1.lastY = player1.y;
+                    player1.x = Math.max(malletR, Math.min(canvas.width - malletR, touchX));
+                    player1.y = Math.max(malletR, Math.min(canvas.height / 2 - malletR, touchY));
+                    player1.vx = 0;
+                    player1.vy = 0;
+                } else if (touchY >= canvas.height / 2 && player2.touchId === null) {
+                    player2.touchId = touch.identifier;
+                    // Immediately move mallet to touch position
+                    player2.lastX = player2.x;
+                    player2.lastY = player2.y;
+                    player2.x = Math.max(malletR, Math.min(canvas.width - malletR, touchX));
+                    player2.y = Math.max(canvas.height / 2 + malletR, Math.min(canvas.height - malletR, touchY));
+                    player2.vx = 0;
+                    player2.vy = 0;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const malletR = getMalletRadius();
+
+            for (const touch of e.changedTouches) {
+                let player = null;
+                let minY, maxY;
+
+                if (touch.identifier === player1.touchId) {
+                    player = player1;
+                    minY = malletR;
+                    maxY = canvas.height / 2 - malletR;
+                } else if (touch.identifier === player2.touchId) {
+                    player = player2;
+                    minY = canvas.height / 2 + malletR;
+                    maxY = canvas.height - malletR;
+                }
+
+                if (player) {
+                    player.lastX = player.x;
+                    player.lastY = player.y;
+                    player.x = Math.max(malletR, Math.min(canvas.width - malletR, touch.clientX));
+                    player.y = Math.max(minY, Math.min(maxY, touch.clientY));
+                    player.vx = player.x - player.lastX;
+                    player.vy = player.y - player.lastY;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            for (const touch of e.changedTouches) {
+                if (touch.identifier === player1.touchId) {
+                    player1.touchId = null;
+                    player1.vx = 0;
+                    player1.vy = 0;
+                } else if (touch.identifier === player2.touchId) {
+                    player2.touchId = null;
+                    player2.vx = 0;
+                    player2.vy = 0;
+                }
+            }
+        }
+
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        canvas.addEventListener('touchcancel', handleTouchEnd);
+
+        // Mouse fallback
+        let mousePlayer = null;
+        canvas.addEventListener('mousedown', (e) => {
+            const malletR = getMalletRadius();
+            mousePlayer = e.clientY < canvas.height / 2 ? player1 : player2;
+            mousePlayer.lastX = mousePlayer.x;
+            mousePlayer.lastY = mousePlayer.y;
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!mousePlayer || !gameRunning) return;
+            const malletR = getMalletRadius();
+            let minY, maxY;
+            if (mousePlayer === player1) {
+                minY = malletR;
+                maxY = canvas.height / 2 - malletR;
+            } else {
+                minY = canvas.height / 2 + malletR;
+                maxY = canvas.height - malletR;
+            }
+            mousePlayer.lastX = mousePlayer.x;
+            mousePlayer.lastY = mousePlayer.y;
+            mousePlayer.x = Math.max(malletR, Math.min(canvas.width - malletR, e.clientX));
+            mousePlayer.y = Math.max(minY, Math.min(maxY, e.clientY));
+            mousePlayer.vx = (mousePlayer.x - mousePlayer.lastX) * 0.5;
+            mousePlayer.vy = (mousePlayer.y - mousePlayer.lastY) * 0.5;
+        });
+        canvas.addEventListener('mouseup', () => {
+            if (mousePlayer) {
+                mousePlayer.vx = 0;
+                mousePlayer.vy = 0;
+            }
+            mousePlayer = null;
+        });
+
+        // Physics
+        function checkMalletPuckCollision(mallet) {
+            const malletR = getMalletRadius();
+            const puckR = getPuckRadius();
+            const dx = puck.x - mallet.x;
+            const dy = puck.y - mallet.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = malletR + puckR;
+
+            if (dist < minDist && dist > 0) {
+                // Normalize
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                // Push puck out of mallet
+                puck.x = mallet.x + nx * (minDist + 1);
+                puck.y = mallet.y + ny * (minDist + 1);
+
+                // Calculate relative velocity
+                const relVx = puck.vx - mallet.vx;
+                const relVy = puck.vy - mallet.vy;
+
+                // Calculate relative velocity in collision normal direction
+                const dotProduct = relVx * nx + relVy * ny;
+
+                // Only resolve if velocities are separating
+                if (dotProduct < 0) {
+                    // Apply impulse (coefficient of restitution = 1.2 for bouncy response)
+                    const restitution = 1.2;
+                    const impulse = -(1 + restitution) * dotProduct;
+
+                    puck.vx += impulse * nx + mallet.vx * 1.5;
+                    puck.vy += impulse * ny + mallet.vy * 1.5;
+                }
+
+                // Always add some mallet velocity for responsiveness
+                puck.vx += mallet.vx * 0.8;
+                puck.vy += mallet.vy * 0.8;
+
+                // Limit speed
+                const maxSpeed = 20;
+                const speed = Math.sqrt(puck.vx * puck.vx + puck.vy * puck.vy);
+                if (speed > maxSpeed) {
+                    puck.vx = (puck.vx / speed) * maxSpeed;
+                    puck.vy = (puck.vy / speed) * maxSpeed;
+                }
+
+                // Ensure minimum speed after collision
+                const minSpeed = 3;
+                if (speed < minSpeed && speed > 0) {
+                    puck.vx = (puck.vx / speed) * minSpeed;
+                    puck.vy = (puck.vy / speed) * minSpeed;
+                }
+            }
+        }
+
+        function update() {
+            const puckR = getPuckRadius();
+            const goalW = getGoalWidth();
+            const goalLeft = (canvas.width - goalW) / 2;
+            const goalRight = goalLeft + goalW;
+
+            // Mallet-Puck collisions FIRST (before moving puck)
+            checkMalletPuckCollision(player1);
+            checkMalletPuckCollision(player2);
+
+            // Puck physics
+            puck.x += puck.vx;
+            puck.y += puck.vy;
+            puck.vx *= FRICTION;
+            puck.vy *= FRICTION;
+
+            // Wall bounces
+            if (puck.x - puckR < 0) {
+                puck.x = puckR;
+                puck.vx *= -0.9;
+            }
+            if (puck.x + puckR > canvas.width) {
+                puck.x = canvas.width - puckR;
+                puck.vx *= -0.9;
+            }
+
+            // Goal detection - Top (Player 1's goal)
+            if (puck.y - puckR < 0) {
+                if (puck.x > goalLeft && puck.x < goalRight) {
+                    // Player 2 scores!
+                    player2.score++;
+                    if (player2.score >= WIN_SCORE) {
+                        showWinner(2);
+                        return;
+                    }
+                    resetPuck();
+                } else {
+                    puck.y = puckR;
+                    puck.vy *= -0.9;
+                }
+            }
+
+            // Goal detection - Bottom (Player 2's goal)
+            if (puck.y + puckR > canvas.height) {
+                if (puck.x > goalLeft && puck.x < goalRight) {
+                    // Player 1 scores!
+                    player1.score++;
+                    if (player1.score >= WIN_SCORE) {
+                        showWinner(1);
+                        return;
+                    }
+                    resetPuck();
+                } else {
+                    puck.y = canvas.height - puckR;
+                    puck.vy *= -0.9;
+                }
+            }
+        }
+
+        function draw() {
+            const malletR = getMalletRadius();
+            const puckR = getPuckRadius();
+            const goalW = getGoalWidth();
+            const goalLeft = (canvas.width - goalW) / 2;
+
+            // Table background
+            ctx.fillStyle = TABLE_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Center circle
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, Math.min(canvas.width, canvas.height) * 0.15, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Center line
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            // Goals
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = PLAYER1_COLOR;
+            ctx.beginPath();
+            ctx.moveTo(goalLeft, 0);
+            ctx.lineTo(goalLeft, 15);
+            ctx.moveTo(goalLeft + goalW, 0);
+            ctx.lineTo(goalLeft + goalW, 15);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 68, 68, 0.3)';
+            ctx.fillRect(goalLeft, 0, goalW, 15);
+
+            ctx.strokeStyle = PLAYER2_COLOR;
+            ctx.beginPath();
+            ctx.moveTo(goalLeft, canvas.height);
+            ctx.lineTo(goalLeft, canvas.height - 15);
+            ctx.moveTo(goalLeft + goalW, canvas.height);
+            ctx.lineTo(goalLeft + goalW, canvas.height - 15);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(68, 255, 68, 0.3)';
+            ctx.fillRect(goalLeft, canvas.height - 15, goalW, 15);
+
+            // Scores
+            ctx.font = `bold ${Math.min(canvas.width, canvas.height) * 0.08}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(255, 68, 68, 0.5)';
+            ctx.fillText(player1.score, canvas.width * 0.1, canvas.height * 0.25);
+            ctx.fillStyle = 'rgba(68, 255, 68, 0.5)';
+            ctx.fillText(player2.score, canvas.width * 0.1, canvas.height * 0.75);
+
+            // Player 1 Mallet (top, red)
+            ctx.beginPath();
+            ctx.arc(player1.x, player1.y, malletR, 0, Math.PI * 2);
+            ctx.fillStyle = PLAYER1_COLOR;
+            ctx.shadowColor = PLAYER1_COLOR;
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Inner circle
+            ctx.beginPath();
+            ctx.arc(player1.x, player1.y, malletR * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#aa0000';
+            ctx.fill();
+
+            // Player 2 Mallet (bottom, green)
+            ctx.beginPath();
+            ctx.arc(player2.x, player2.y, malletR, 0, Math.PI * 2);
+            ctx.fillStyle = PLAYER2_COLOR;
+            ctx.shadowColor = PLAYER2_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(player2.x, player2.y, malletR * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#00aa00';
+            ctx.fill();
+
+            // Puck
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#000';
+            ctx.beginPath();
+            ctx.arc(puck.x, puck.y, puckR, 0, Math.PI * 2);
+            ctx.fillStyle = PUCK_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial draw
+        resetPositions();
+        draw();
+
+        // Event Listeners - both click and touchend for mobile compatibility
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        startBtn.addEventListener('click', startGame);
+        startBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            startGame();
+        });
+
+        restartBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            startGame();
+        });
+    </script>
+</body>
+
+</html>

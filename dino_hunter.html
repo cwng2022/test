@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>侏羅紀恐龍狩獵 - Jurassic Dino Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+        }
+
+        /* UI Overlay */
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Circular Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 2px solid #ff0000;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #ff0000;
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 14px;
+            left: 50%;
+            top: -18px;
+            transform: translateX(-50%);
+        }
+
+        #crosshair::after {
+            width: 2px;
+            height: 14px;
+            left: 50%;
+            bottom: -18px;
+            transform: translateX(-50%);
+        }
+
+        #crosshair-h1,
+        #crosshair-h2 {
+            position: absolute;
+            background: #ff0000;
+            width: 14px;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #crosshair-h1 {
+            left: -18px;
+        }
+
+        #crosshair-h2 {
+            right: -18px;
+        }
+
+        #crosshair-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: #ff0000;
+            border-radius: 50%;
+        }
+
+        /* Panels */
+        .panel {
+            position: absolute;
+            color: #fff;
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9);
+            padding: 10px;
+        }
+
+        #score-panel {
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        #time-panel {
+            top: 20px;
+            left: 20px;
+        }
+
+        #controls-panel {
+            bottom: 20px;
+            left: 20px;
+            font-size: 14px;
+            opacity: 0.7;
+            font-weight: normal;
+        }
+
+        #debug-panel {
+            bottom: 60px;
+            left: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            color: #00ff00;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        /* Hit Effect */
+        #hitEffect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #hitEffect.show {
+            animation: hitFlash 0.15s ease-out;
+        }
+
+        @keyframes hitFlash {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        #startScreen h1 {
+            font-size: 56px;
+            color: #ffd700;
+            text-shadow: 0 0 20px #ff6600;
+            margin-bottom: 20px;
+        }
+
+        #startScreen p {
+            color: #ccc;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        #startBtn {
+            margin-top: 30px;
+            padding: 18px 50px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #ff6600, #ff3300);
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            pointer-events: auto;
+        }
+
+        #startBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Message */
+        #message {
+            position: absolute;
+            top: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 36px;
+            color: #ffd700;
+            text-shadow: 3px 3px 6px #000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="crosshair">
+            <div id="crosshair-h1"></div>
+            <div id="crosshair-h2"></div>
+            <div id="crosshair-dot"></div>
+        </div>
+        <svg id="hitEffect" width="60" height="60" viewBox="0 0 60 60">
+            <line x1="10" y1="10" x2="50" y2="50" stroke="white" stroke-width="4" />
+            <line x1="50" y1="10" x2="10" y2="50" stroke="white" stroke-width="4" />
+        </svg>
+        <div class="panel" id="score-panel">分數: <span id="score">0</span></div>
+        <div class="panel" id="time-panel">時間: <span id="time">120</span>s</div>
+        <div class="panel" id="controls-panel">WASD/方向鍵: 移動 | 滑鼠: 瞄準 | 點擊: 射擊</div>
+        <div class="panel" id="debug-panel">
+            按鍵: <span id="debugKeys">-</span> |
+            位置: <span id="debugPos">0, 0</span> |
+            子彈: <span id="debugBullets">0</span> |
+            恐龍: <span id="debugDinos">0</span>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <div id="startScreen">
+        <h1>🦖 侏羅紀狩獵</h1>
+        <p>駕駛皮卡車，獵殺恐龍！</p>
+        <p>瞄準頭部造成雙倍傷害</p>
+        <button id="startBtn">開始遊戲</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ========== GAME STATE ==========
+        let gameRunning = false;
+        let score = 0;
+        let timeLeft = 120;
+
+        // ========== INPUT STATE ==========
+        const input = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false
+        };
+
+        // Camera rotation angles (FPS style)
+        let cameraYaw = 0;   // Left/right rotation
+        let cameraPitch = 0; // Up/down rotation
+
+        // ========== THREE.JS SETUP ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 250);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.domElement.id = 'gameCanvas';
+        document.body.insertBefore(renderer.domElement, document.body.firstChild);
+
+        // ========== LIGHTING ==========
+        const ambientLight = new THREE.AmbientLight(0x888888);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        sunLight.position.set(50, 100, 50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        // ========== GROUND ==========
+        const groundGeo = new THREE.PlaneGeometry(600, 600);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x4a7c4a,
+            roughness: 0.9
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // ========== TREES ==========
+        function createTree(x, z) {
+            const group = new THREE.Group();
+
+            const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, 4, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 2;
+            trunk.castShadow = true;
+            group.add(trunk);
+
+            const leavesGeo = new THREE.ConeGeometry(2.5, 5, 8);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+            leaves.position.y = 6;
+            leaves.castShadow = true;
+            group.add(leaves);
+
+            group.position.set(x, 0, z);
+            return group;
+        }
+
+        for (let i = 0; i < 100; i++) {
+            const x = (Math.random() - 0.5) * 500;
+            const z = (Math.random() - 0.5) * 500;
+            if (Math.abs(x) > 20 || Math.abs(z) > 20) {
+                scene.add(createTree(x, z));
+            }
+        }
+
+        // ========== VEHICLE ==========
+        const vehicle = new THREE.Group();
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(2.5, 1.2, 4.5);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x556B2F });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 1.1;
+        body.castShadow = true;
+        vehicle.add(body);
+
+        // Cabin
+        const cabinGeo = new THREE.BoxGeometry(2.3, 1, 2);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(0, 2.2, -0.8);
+        cabin.castShadow = true;
+        vehicle.add(cabin);
+
+        // Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        [[-1.2, 1.4], [1.2, 1.4], [-1.2, -1.4], [1.2, -1.4]].forEach(([x, z]) => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.position.set(x, 0.5, z);
+            wheel.castShadow = true;
+            vehicle.add(wheel);
+        });
+
+        // Turret base (visual only, doesn't rotate with aim)
+        const turretBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16),
+            new THREE.MeshStandardMaterial({ color: 0x222222 })
+        );
+        turretBase.position.set(0, 1.85, 0.5);
+        vehicle.add(turretBase);
+
+        // Gun (attached to camera, not vehicle)
+        const gunGroup = new THREE.Group();
+        const gunBarrel = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 0.12, 1.8),
+            new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        gunBarrel.position.z = 0.9;
+        gunGroup.add(gunBarrel);
+
+        // Gun visual offset from camera
+        gunGroup.position.set(0, -0.3, 0);
+        camera.add(gunGroup);
+        scene.add(camera); // Camera needs to be in scene to render children
+
+        vehicle.position.set(0, 0, 0);
+        scene.add(vehicle);
+
+        // ========== DINOSAURS ==========
+        const dinosaurs = [];
+
+        // Create health bar sprite
+        function createHealthBar() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 8;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, 64, 8);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(1, 1, 62, 6);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(3, 0.4, 1);
+            return { sprite, canvas, ctx, texture };
+        }
+
+        function updateHealthBar(d) {
+            const pct = Math.max(0, d.hp / d.maxHp);
+            const ctx = d.healthBar.ctx;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, 0, 64, 8);
+            // Color based on HP
+            if (pct > 0.6) ctx.fillStyle = '#00ff00';
+            else if (pct > 0.3) ctx.fillStyle = '#ffff00';
+            else ctx.fillStyle = '#ff0000';
+            ctx.fillRect(1, 1, Math.floor(62 * pct), 6);
+            d.healthBar.texture.needsUpdate = true;
+        }
+
+        function createDino(type, x, z) {
+            const group = new THREE.Group();
+            let hp, speed, scale, scoreValue;
+
+            const bodyColor = type === 'raptor' ? 0x2d5a27 :
+                type === 'triceratops' ? 0x8B4513 : 0x607080;
+
+            // Balanced HP values
+            if (type === 'raptor') {
+                hp = 80; speed = 0.2; scale = 0.8; scoreValue = 150;
+            } else if (type === 'triceratops') {
+                hp = 150; speed = 0.08; scale = 1.4; scoreValue = 200;
+            } else { // brachio
+                hp = 250; speed = 0.04; scale = 2.2; scoreValue = 300;
+            }
+
+            const mat = new THREE.MeshStandardMaterial({ color: bodyColor });
+
+            // Body - mark it clearly
+            const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 2.2), mat);
+            bodyMesh.position.y = 1.2;
+            bodyMesh.castShadow = true;
+            bodyMesh.userData.partType = 'body';
+            group.add(bodyMesh);
+
+            // Head - mark it clearly for raycast
+            const headMat = new THREE.MeshStandardMaterial({ color: bodyColor });
+            const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.9), headMat);
+            headMesh.position.set(0, 1.5, 1.4);
+            headMesh.castShadow = true;
+            headMesh.userData.partType = 'head'; // CRITICAL for hit detection
+            group.add(headMesh);
+
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.3, 1.2, 0.3);
+            [[-0.35, 0.7], [0.35, 0.7], [-0.35, -0.7], [0.35, -0.7]].forEach(([lx, lz]) => {
+                const leg = new THREE.Mesh(legGeo, mat);
+                leg.position.set(lx, 0.6, lz);
+                leg.castShadow = true;
+                leg.userData.partType = 'body';
+                group.add(leg);
+            });
+
+            // Tail
+            const tailGeo = new THREE.BoxGeometry(0.3, 0.3, 1.5);
+            const tail = new THREE.Mesh(tailGeo, mat);
+            tail.position.set(0, 1.2, -1.8);
+            tail.castShadow = true;
+            tail.userData.partType = 'body';
+            group.add(tail);
+
+            // Health bar
+            const healthBar = createHealthBar();
+            healthBar.sprite.position.y = 3; // Above dino
+            group.add(healthBar.sprite);
+
+            group.scale.set(scale, scale, scale);
+            group.position.set(x, 0, z);
+
+            scene.add(group);
+
+            return {
+                mesh: group,
+                type: type,
+                hp: hp,
+                maxHp: hp,
+                speed: speed,
+                scoreValue: scoreValue,
+                state: 'wander',
+                dir: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
+                timer: Math.random() * 100,
+                healthBar: healthBar
+            };
+        }
+
+        // Spawn initial dinosaurs
+        function spawnDinos() {
+            const types = ['raptor', 'triceratops', 'brachio'];
+            for (let i = 0; i < 15; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 35 + Math.random() * 80;
+                const dino = createDino(
+                    types[Math.floor(Math.random() * types.length)],
+                    Math.cos(angle) * dist,
+                    Math.sin(angle) * dist
+                );
+                dinosaurs.push(dino);
+            }
+        }
+        spawnDinos();
+
+        // ========== BULLETS ==========
+        const bullets = [];
+
+        function shoot() {
+            if (!gameRunning) return;
+
+            // Forward direction (camera looks down -Z axis)
+            const forward = new THREE.Vector3(0, 0, -1);
+            forward.applyQuaternion(camera.quaternion);
+
+            // Bullet starts slightly in front of camera
+            const bulletStart = new THREE.Vector3();
+            camera.getWorldPosition(bulletStart);
+            bulletStart.add(forward.clone().multiplyScalar(1.5)); // 1.5 units in front
+
+            // Create visible bullet
+            const bulletGeo = new THREE.SphereGeometry(0.15, 8, 8);
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+            bullet.position.copy(bulletStart);
+            scene.add(bullet);
+
+            bullets.push({
+                mesh: bullet,
+                vel: forward.clone().multiplyScalar(6), // Fast bullets for range
+                life: 200 // Long range
+            });
+
+            // Recoil animation
+            gunGroup.position.z = 0.15;
+            setTimeout(() => gunGroup.position.z = 0, 50);
+
+            playSound();
+        }
+
+        function playSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(500, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.1);
+            } catch (e) { }
+        }
+
+        // Special headshot kill sound - higher pitch and longer
+        function playHeadshotSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                // First tone - high ping
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(1200, ctx.currentTime);
+                osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+                gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start();
+                osc1.stop(ctx.currentTime + 0.15);
+
+                // Second tone - confirmation beep
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'square';
+                osc2.frequency.setValueAtTime(600, ctx.currentTime + 0.1);
+                gain2.gain.setValueAtTime(0, ctx.currentTime);
+                gain2.gain.setValueAtTime(0.1, ctx.currentTime + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.25);
+            } catch (e) { }
+        }
+
+        // ========== INPUT HANDLERS ==========
+        function handleKeyDown(e) {
+            const code = e.code;
+            if (code === 'KeyW' || code === 'ArrowUp') input.forward = true;
+            if (code === 'KeyS' || code === 'ArrowDown') input.backward = true;
+            if (code === 'KeyA' || code === 'ArrowLeft') input.left = true;
+            if (code === 'KeyD' || code === 'ArrowRight') input.right = true;
+            updateDebugKeys();
+        }
+
+        function handleKeyUp(e) {
+            const code = e.code;
+            if (code === 'KeyW' || code === 'ArrowUp') input.forward = false;
+            if (code === 'KeyS' || code === 'ArrowDown') input.backward = false;
+            if (code === 'KeyA' || code === 'ArrowLeft') input.left = false;
+            if (code === 'KeyD' || code === 'ArrowRight') input.right = false;
+            updateDebugKeys();
+        }
+
+        function handleMouseMove(e) {
+            if (!gameRunning || !document.pointerLockElement) return;
+
+            // FPS-style camera rotation
+            cameraYaw -= e.movementX * 0.002;
+            cameraPitch -= e.movementY * 0.002;
+
+            // Clamp pitch to prevent flipping
+            cameraPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraPitch));
+        }
+
+        function handleClick() {
+            if (gameRunning) {
+                shoot();
+            }
+        }
+
+        function updateDebugKeys() {
+            const keys = [];
+            if (input.forward) keys.push('W');
+            if (input.backward) keys.push('S');
+            if (input.left) keys.push('A');
+            if (input.right) keys.push('D');
+            document.getElementById('debugKeys').textContent = keys.length ? keys.join(' ') : '-';
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('click', handleClick);
+
+        // ========== GAME FUNCTIONS ==========
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.body.requestPointerLock();
+            gameRunning = true;
+            score = 0;
+            timeLeft = 120;
+            cameraYaw = 0;
+            cameraPitch = 0;
+            document.getElementById('score').textContent = '0';
+            document.getElementById('time').textContent = '120';
+
+            const timer = setInterval(() => {
+                if (!gameRunning) { clearInterval(timer); return; }
+                timeLeft--;
+                document.getElementById('time').textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    gameRunning = false;
+                    document.exitPointerLock();
+                    document.getElementById('startScreen').classList.remove('hidden');
+                    document.querySelector('#startScreen h1').textContent = '遊戲結束!';
+                    document.querySelector('#startScreen p').textContent = `最終得分: ${score}`;
+                }
+            }, 1000);
+        }
+
+        document.getElementById('startBtn').addEventListener('click', startGame);
+
+        function showMessage(text) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.style.opacity = '1';
+            setTimeout(() => el.style.opacity = '0', 1500);
+        }
+
+        function showHitEffect() {
+            const el = document.getElementById('hitEffect');
+            el.classList.remove('show');
+            void el.offsetWidth; // Trigger reflow
+            el.classList.add('show');
+        }
+
+        function addScore(pts) {
+            score += pts;
+            document.getElementById('score').textContent = score;
+        }
+
+        // ========== GAME LOOP ==========
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!gameRunning) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            // === Vehicle Movement ===
+            const moveSpeed = 0.35;
+            const turnSpeed = 0.035;
+
+            // Movement is relative to camera yaw (where player is looking)
+            // Note: In camera space, -Z is forward, so we invert
+            const moveDir = new THREE.Vector3();
+            if (input.forward) moveDir.z -= 1;  // W = forward = -Z
+            if (input.backward) moveDir.z += 1; // S = backward = +Z
+            if (input.left) moveDir.x -= 1;
+            if (input.right) moveDir.x += 1;
+
+            if (moveDir.length() > 0) {
+                moveDir.normalize();
+                // Rotate movement by camera yaw
+                moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
+                vehicle.position.add(moveDir.multiplyScalar(moveSpeed));
+
+                // Rotate vehicle to face movement direction
+                const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+                vehicle.rotation.y = targetAngle;
+            }
+
+            // Clamp position
+            vehicle.position.x = Math.max(-280, Math.min(280, vehicle.position.x));
+            vehicle.position.z = Math.max(-280, Math.min(280, vehicle.position.z));
+
+            // === Camera Position (FPS style, follows vehicle but rotates independently) ===
+            const camHeight = 3.5;
+            const camDist = 0; // First-person, camera at vehicle position
+
+            camera.position.set(
+                vehicle.position.x,
+                vehicle.position.y + camHeight,
+                vehicle.position.z
+            );
+
+            // Apply camera rotation (yaw and pitch from mouse)
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = cameraYaw;
+            camera.rotation.x = cameraPitch;
+
+            // Debug info
+            document.getElementById('debugPos').textContent =
+                `${vehicle.position.x.toFixed(0)}, ${vehicle.position.z.toFixed(0)}`;
+            document.getElementById('debugBullets').textContent = bullets.length;
+            document.getElementById('debugDinos').textContent = dinosaurs.length;
+
+            // === Bullet Update & Hit Detection ===
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.mesh.position.add(b.vel);
+                b.life--;
+
+                // Check hits against all dinosaurs using RAYCAST
+                for (let j = dinosaurs.length - 1; j >= 0; j--) {
+                    const d = dinosaurs[j];
+                    if (d.state === 'dying') continue;
+
+                    // Use raycast from bullet in its direction
+                    const rayDir = b.vel.clone().normalize();
+                    const raycaster = new THREE.Raycaster(b.mesh.position, rayDir, 0, b.vel.length() * 1.5);
+
+                    const intersects = raycaster.intersectObjects(d.mesh.children, false);
+
+                    if (intersects.length > 0) {
+                        // HIT! Check which part
+                        const hitPart = intersects[0].object.userData.partType;
+
+                        // Damage values:
+                        // Body hit = 30 damage
+                        // Headshot = 150 damage (instant kill for raptor, 2 shots for others)
+                        let damage = 30;
+                        let isHeadshot = false;
+
+                        if (hitPart === 'head') {
+                            damage = 150;
+                            isHeadshot = true;
+                        }
+
+                        d.hp -= damage;
+                        updateHealthBar(d);
+
+                        // Visual feedback for hits (not kills)
+                        showHitEffect();
+
+                        // Flee behavior
+                        if (d.state !== 'dying') {
+                            d.state = 'flee';
+                            d.timer = 100;
+                        }
+
+                        // Remove bullet
+                        scene.remove(b.mesh);
+                        bullets.splice(i, 1);
+
+                        // Check death
+                        if (d.hp <= 0) {
+                            d.state = 'dying';
+                            d.deathTimer = 60;
+                            d.healthBar.sprite.visible = false;
+
+                            // DIFFERENT TREATMENT FOR HEADSHOT KILL vs BODY KILL
+                            if (isHeadshot) {
+                                // Headshot kill - bonus points, special sound
+                                const pts = d.scoreValue * 3; // Triple points for headshot kill!
+                                addScore(pts);
+                                showMessage(`爆頭擊殺! ${d.type.toUpperCase()} +${pts}`);
+                                playHeadshotSound();
+                            } else {
+                                // Normal body kill
+                                const pts = d.scoreValue;
+                                addScore(pts);
+                                showMessage(`擊殺 ${d.type.toUpperCase()}! +${pts}`);
+                            }
+                        }
+                        break; // Stop checking other dinos for this bullet
+                    }
+                }
+
+                // Bullet timeout or ground hit
+                if (b.life <= 0 || b.mesh.position.y < 0) {
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // === Dinosaur AI ===
+            for (let i = dinosaurs.length - 1; i >= 0; i--) {
+                const d = dinosaurs[i];
+                d.timer--;
+
+                if (d.state === 'dying') {
+                    // Death animation: fall over and sink
+                    d.deathTimer--;
+                    d.mesh.rotation.x = Math.min(d.mesh.rotation.x + 0.05, Math.PI / 2); // Fall forward
+                    d.mesh.position.y -= 0.02; // Sink into ground
+
+                    if (d.deathTimer <= 0) {
+                        // Remove and respawn
+                        scene.remove(d.mesh);
+                        dinosaurs.splice(i, 1);
+
+                        // Respawn new dino
+                        setTimeout(() => {
+                            const types = ['raptor', 'triceratops', 'brachio'];
+                            const angle = Math.random() * Math.PI * 2;
+                            const dist = 50 + Math.random() * 60;
+                            const nd = createDino(
+                                types[Math.floor(Math.random() * 3)],
+                                vehicle.position.x + Math.cos(angle) * dist,
+                                vehicle.position.z + Math.sin(angle) * dist
+                            );
+                            dinosaurs.push(nd);
+                        }, 1500);
+                    }
+                    continue;
+                }
+
+                if (d.state === 'wander') {
+                    if (d.timer <= 0) {
+                        d.timer = 60 + Math.random() * 120;
+                        d.dir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+                    }
+                    d.mesh.position.add(d.dir.clone().multiplyScalar(d.speed));
+                } else if (d.state === 'flee') {
+                    const flee = new THREE.Vector3()
+                        .subVectors(d.mesh.position, vehicle.position)
+                        .normalize();
+                    d.dir.lerp(flee, 0.15);
+                    d.mesh.position.add(d.dir.clone().multiplyScalar(d.speed * 2.5));
+
+                    if (d.timer <= 0) d.state = 'wander';
+                }
+
+                // Face direction
+                if (d.dir.length() > 0 && d.state !== 'dying') {
+                    d.mesh.lookAt(d.mesh.position.clone().add(d.dir));
+                }
+
+                // Walking animation (only if not dying)
+                if (d.state !== 'dying') {
+                    d.mesh.position.y = Math.sin(Date.now() * 0.006) * 0.08;
+                }
+
+                // Keep in bounds
+                d.mesh.position.x = Math.max(-270, Math.min(270, d.mesh.position.x));
+                d.mesh.position.z = Math.max(-270, Math.min(270, d.mesh.position.z));
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // ========== RESIZE ==========
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>

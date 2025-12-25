@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雙人乒乓球 - Touch Pong</title>
+    <style>
+        :root {
+            --bg-color: #0a0a1a;
+            --neon-blue: #00d4ff;
+            --neon-pink: #ff00aa;
+            --neon-glow: 0 0 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-color);
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #startScreen h1 {
+            font-size: 3rem;
+            color: #fff;
+            text-shadow: var(--neon-glow) var(--neon-blue);
+            margin-bottom: 20px;
+        }
+
+        #startScreen p {
+            color: #aaa;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #startBtn {
+            margin-top: 30px;
+            padding: 18px 50px;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-pink));
+            border: none;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: var(--neon-glow) var(--neon-blue);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Win Screen */
+        #winScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #winScreen h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+
+        #winScreen.player1-win h1 {
+            color: var(--neon-blue);
+            text-shadow: var(--neon-glow) var(--neon-blue);
+        }
+
+        #winScreen.player2-win h1 {
+            color: var(--neon-pink);
+            text-shadow: var(--neon-glow) var(--neon-pink);
+        }
+
+        #restartBtn {
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            background: #333;
+            border: 2px solid #fff;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="startScreen">
+        <h1>🏓 雙人乒乓球</h1>
+        <p>兩位玩家各自控制一邊嘅擋板</p>
+        <p>用手指上下拖動擋板</p>
+        <p>先得 11 分者勝出！</p>
+        <button id="startBtn">開始遊戲</button>
+    </div>
+
+    <div id="winScreen">
+        <h1 id="winText">玩家1 勝出！</h1>
+        <button id="restartBtn">再玩一次</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Responsive sizing
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Game State
+        let gameRunning = false;
+        const WIN_SCORE = 11;
+
+        // Colors
+        const BLUE = '#00d4ff';
+        const PINK = '#ff00aa';
+        const WHITE = '#ffffff';
+
+        // Paddle dimensions (responsive)
+        function getPaddleHeight() { return canvas.height * 0.2; }
+        function getPaddleWidth() { return canvas.width * 0.025; }
+        function getBallRadius() { return Math.min(canvas.width, canvas.height) * 0.02; }
+
+        // Game Objects
+        const player1 = { y: 0, score: 0, touching: false, touchId: null };
+        const player2 = { y: 0, score: 0, touching: false, touchId: null };
+        const ball = { x: 0, y: 0, vx: 0, vy: 0 };
+
+        function resetPositions() {
+            player1.y = canvas.height / 2;
+            player2.y = canvas.height / 2;
+            resetBall();
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            const speed = Math.min(canvas.width, canvas.height) * 0.008;
+            const angle = (Math.random() - 0.5) * Math.PI / 3;
+            const dir = Math.random() < 0.5 ? 1 : -1;
+            ball.vx = Math.cos(angle) * speed * dir;
+            ball.vy = Math.sin(angle) * speed;
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('winScreen').style.display = 'none';
+            player1.score = 0;
+            player2.score = 0;
+            resetPositions();
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showWinner(playerNum) {
+            gameRunning = false;
+            const winScreen = document.getElementById('winScreen');
+            const winText = document.getElementById('winText');
+            winScreen.className = playerNum === 1 ? 'player1-win' : 'player2-win';
+            winText.textContent = `玩家${playerNum} 勝出！`;
+            winScreen.style.display = 'flex';
+        }
+
+        // Touch Controls
+        function handleTouchStart(e) {
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const x = touch.clientX;
+                // Left half = Player 1, Right half = Player 2
+                if (x < canvas.width / 2) {
+                    player1.touching = true;
+                    player1.touchId = touch.identifier;
+                    player1.y = touch.clientY;
+                } else {
+                    player2.touching = true;
+                    player2.touchId = touch.identifier;
+                    player2.y = touch.clientY;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                if (touch.identifier === player1.touchId) {
+                    player1.y = touch.clientY;
+                } else if (touch.identifier === player2.touchId) {
+                    player2.y = touch.clientY;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            for (const touch of e.changedTouches) {
+                if (touch.identifier === player1.touchId) {
+                    player1.touching = false;
+                    player1.touchId = null;
+                } else if (touch.identifier === player2.touchId) {
+                    player2.touching = false;
+                    player2.touchId = null;
+                }
+            }
+        }
+
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        canvas.addEventListener('touchcancel', handleTouchEnd);
+
+        // Mouse fallback for testing
+        let mousePlayer = null;
+        canvas.addEventListener('mousedown', (e) => {
+            mousePlayer = e.clientX < canvas.width / 2 ? player1 : player2;
+            mousePlayer.y = e.clientY;
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (mousePlayer) mousePlayer.y = e.clientY;
+        });
+        canvas.addEventListener('mouseup', () => mousePlayer = null);
+
+        // Game Logic
+        function update() {
+            const paddleH = getPaddleHeight();
+            const paddleW = getPaddleWidth();
+            const ballR = getBallRadius();
+            const paddleOffset = paddleW * 2;
+
+            // Clamp paddle positions
+            player1.y = Math.max(paddleH / 2, Math.min(canvas.height - paddleH / 2, player1.y));
+            player2.y = Math.max(paddleH / 2, Math.min(canvas.height - paddleH / 2, player2.y));
+
+            // Ball movement
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // Top/Bottom bounce
+            if (ball.y - ballR < 0 || ball.y + ballR > canvas.height) {
+                ball.vy *= -1;
+                ball.y = Math.max(ballR, Math.min(canvas.height - ballR, ball.y));
+            }
+
+            // Paddle collision - Player 1 (left)
+            if (ball.x - ballR < paddleOffset + paddleW / 2 && ball.vx < 0) {
+                const paddleTop = player1.y - paddleH / 2;
+                const paddleBottom = player1.y + paddleH / 2;
+                if (ball.y > paddleTop && ball.y < paddleBottom) {
+                    ball.vx = Math.abs(ball.vx) * 1.05; // Speed up
+                    const hitPos = (ball.y - player1.y) / (paddleH / 2);
+                    ball.vy += hitPos * 3;
+                    ball.x = paddleOffset + paddleW / 2 + ballR;
+                }
+            }
+
+            // Paddle collision - Player 2 (right)
+            if (ball.x + ballR > canvas.width - paddleOffset - paddleW / 2 && ball.vx > 0) {
+                const paddleTop = player2.y - paddleH / 2;
+                const paddleBottom = player2.y + paddleH / 2;
+                if (ball.y > paddleTop && ball.y < paddleBottom) {
+                    ball.vx = -Math.abs(ball.vx) * 1.05;
+                    const hitPos = (ball.y - player2.y) / (paddleH / 2);
+                    ball.vy += hitPos * 3;
+                    ball.x = canvas.width - paddleOffset - paddleW / 2 - ballR;
+                }
+            }
+
+            // Scoring
+            if (ball.x < 0) {
+                player2.score++;
+                if (player2.score >= WIN_SCORE) {
+                    showWinner(2);
+                } else {
+                    resetBall();
+                }
+            } else if (ball.x > canvas.width) {
+                player1.score++;
+                if (player1.score >= WIN_SCORE) {
+                    showWinner(1);
+                } else {
+                    resetBall();
+                }
+            }
+        }
+
+        function draw() {
+            const paddleH = getPaddleHeight();
+            const paddleW = getPaddleWidth();
+            const ballR = getBallRadius();
+            const paddleOffset = paddleW * 2;
+
+            // Background
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Center line
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Touch zones (subtle)
+            ctx.fillStyle = 'rgba(0, 212, 255, 0.03)';
+            ctx.fillRect(0, 0, canvas.width / 2, canvas.height);
+            ctx.fillStyle = 'rgba(255, 0, 170, 0.03)';
+            ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+
+            // Scores
+            ctx.font = `bold ${Math.min(canvas.width, canvas.height) * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(0, 212, 255, 0.3)';
+            ctx.fillText(player1.score, canvas.width * 0.25, canvas.height * 0.2);
+            ctx.fillStyle = 'rgba(255, 0, 170, 0.3)';
+            ctx.fillText(player2.score, canvas.width * 0.75, canvas.height * 0.2);
+
+            // Player 1 Paddle (left, blue)
+            ctx.fillStyle = BLUE;
+            ctx.shadowColor = BLUE;
+            ctx.shadowBlur = 20;
+            ctx.fillRect(
+                paddleOffset - paddleW / 2,
+                player1.y - paddleH / 2,
+                paddleW,
+                paddleH
+            );
+
+            // Player 2 Paddle (right, pink)
+            ctx.fillStyle = PINK;
+            ctx.shadowColor = PINK;
+            ctx.fillRect(
+                canvas.width - paddleOffset - paddleW / 2,
+                player2.y - paddleH / 2,
+                paddleW,
+                paddleH
+            );
+
+            // Ball
+            ctx.fillStyle = WHITE;
+            ctx.shadowColor = WHITE;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ballR, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial draw
+        resetPositions();
+        draw();
+
+        // Event Listeners
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+    </script>
+</body>
+
+</html>
