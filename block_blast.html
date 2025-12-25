@@ -9,42 +9,34 @@
         :root {
             /* Core Colors based on the reference image (Dark Grey Theme) */
             --bg-color: #616C7A;
-            /* Background grey */
             --grid-bg: #262c36;
-            /* Darker grid background */
             --cell-empty: #1f252e;
-            /* Empty cell slot */
             --text-color: #ffffff;
-
-            /* UI Elements */
             --header-text: #ffffff;
             --score-bg: #262c36;
-            /* Same as grid bg */
 
             /* Block Colors (Pastel/Gummy style) */
             --c1-main: #6699CC;
             --c1-shadow: #507AAA;
-            /* Blue */
             --c2-main: #e88080;
             --c2-shadow: #c05c5c;
-            /* Red/Pink */
             --c3-main: #eccc68;
             --c3-shadow: #cfa53e;
-            /* Yellow */
             --c4-main: #95afc0;
             --c4-shadow: #708695;
-            /* Grey/Blue */
             --c5-main: #a29bfe;
             --c5-shadow: #837bde;
-            /* Purple */
             --c6-main: #55efc4;
             --c6-shadow: #00b894;
-            /* Green */
 
-            /* Dimensions */
+            /* Responsive Dimensions - will be updated by JS */
             --cell-size: min(11vw, 55px);
             --gap: 3px;
             --block-radius: 6px;
+
+            /* Safe area for notched phones */
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         * {
@@ -55,27 +47,52 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        html {
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
             margin: 0;
             padding: 0;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
+            /* Use dvh for dynamic viewport height (handles mobile browser UI) */
+            height: 100dvh;
             height: 100vh;
+            /* Fallback for older browsers */
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        /* --- Game Container --- */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
             overflow: hidden;
         }
 
         /* --- Header --- */
         header {
             width: 100%;
-            padding: 40px 20px 20px 20px;
+            padding: 15px 20px 10px 20px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            max-width: 500px;
+            align-items: center;
+            flex-shrink: 0;
             z-index: 10;
         }
 
@@ -83,39 +100,41 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             color: #f1c40f;
         }
 
         .crown-icon {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             fill: #f1c40f;
         }
 
         .high-score-text {
             font-weight: 800;
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
         }
 
         .settings-btn {
             background: none;
             border: none;
-            font-size: 2rem;
+            font-size: 1.8rem;
             color: #fff;
             cursor: pointer;
             opacity: 0.8;
+            padding: 5px;
         }
 
         .score-display-container {
             width: 100%;
             text-align: center;
-            margin-bottom: 20px;
+            padding: 5px 0 15px 0;
+            flex-shrink: 0;
         }
 
         .current-score-text {
-            font-size: 4rem;
+            font-size: 3rem;
             font-weight: 800;
             color: #fff;
             text-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
@@ -127,10 +146,12 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
             width: 100%;
             position: relative;
+            min-height: 0;
+            /* Important for flex shrinking */
         }
 
         #grid {
@@ -146,6 +167,7 @@
             height: calc((var(--cell-size) * 8) + (var(--gap) * 9));
             position: relative;
             z-index: 5;
+            flex-shrink: 0;
         }
 
         .cell {
@@ -161,17 +183,12 @@
             height: 100%;
             border-radius: 4px;
             position: relative;
-            /* The 3D Bevel Effect */
             box-shadow:
                 inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-                /* subtle rim */
                 inset 2px 2px 0px rgba(255, 255, 255, 0.25),
-                /* top-left highlight */
                 inset -2px -2px 0px rgba(0, 0, 0, 0.15);
-            /* bottom-right shadow */
         }
 
-        /* Inner face to give volume */
         .block-base::after {
             content: '';
             position: absolute;
@@ -253,7 +270,6 @@
             }
         }
 
-        /* Row Highlight for clear */
         .row-flash {
             position: absolute;
             left: 0;
@@ -278,7 +294,7 @@
 
         /* --- Particles --- */
         #particles {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -292,27 +308,26 @@
             position: absolute;
             border-radius: 2px;
             pointer-events: none;
-            /* box-shadow: 0 0 4px rgba(255, 255, 255, 0.5); */
-            /* Cleaner look without shadow */
         }
 
         /* --- Piece Container --- */
         #piece-container {
             width: 100%;
-            height: 180px;
+            min-height: 100px;
+            max-height: 150px;
+            flex: 0 0 auto;
             display: flex;
             justify-content: space-evenly;
             align-items: center;
-            padding: 0 10px 20px 10px;
-            /* Removed gradient bg */
+            padding: 10px 10px;
+            padding-bottom: calc(15px + var(--safe-bottom));
             z-index: 5;
-            margin-top: auto;
-            /* Push to bottom */
         }
 
         .piece-slot {
             width: 30%;
             height: 100%;
+            min-height: 80px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -325,8 +340,7 @@
             cursor: grab;
             touch-action: none;
             transform-origin: center center;
-            /* Initial scale for pieces in hand */
-            transform: scale(0.65);
+            transform: scale(0.55);
             transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
@@ -339,10 +353,8 @@
             height: var(--cell-size);
         }
 
-        /* Ghost styling: Semi-transparent version of the block */
         .ghost-block {
             opacity: 0.4;
-            /* Filter grayscale optional, but colored ghost is better */
             box-shadow: none !important;
         }
 
@@ -374,13 +386,13 @@
 
         .modal {
             background: #2a364b;
-            padding: 40px;
+            padding: 30px;
             border-radius: 20px;
             text-align: center;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             border: 1px solid #3e506e;
-            width: 90%;
-            max-width: 350px;
+            width: 85%;
+            max-width: 320px;
         }
 
         button.action-btn {
@@ -388,11 +400,11 @@
             color: white;
             border: none;
             padding: 15px 40px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             border-radius: 12px;
             box-shadow: 0 4px 0 #4834d4;
             cursor: pointer;
-            margin-top: 20px;
+            margin-top: 15px;
             font-weight: bold;
             transition: transform 0.1s;
         }
@@ -401,37 +413,210 @@
             transform: translateY(4px);
             box-shadow: none;
         }
+
+        /* ========== RESPONSIVE STYLES ========== */
+
+        /* Small phones (height < 600px) */
+        @media screen and (max-height: 600px) {
+            :root {
+                --cell-size: min(10vw, 38px);
+            }
+
+            header {
+                padding: 8px 15px 5px 15px;
+            }
+
+            .high-score-container {
+                font-size: 1rem;
+            }
+
+            .crown-icon {
+                width: 22px;
+                height: 22px;
+            }
+
+            .high-score-text {
+                font-size: 1.2rem;
+            }
+
+            .settings-btn {
+                font-size: 1.4rem;
+            }
+
+            .score-display-container {
+                padding: 0 0 8px 0;
+            }
+
+            .current-score-text {
+                font-size: 2rem;
+            }
+
+            #piece-container {
+                min-height: 70px;
+                max-height: 100px;
+                padding: 5px 10px;
+            }
+
+            .piece-slot {
+                min-height: 60px;
+            }
+
+            .piece {
+                transform: scale(0.45);
+            }
+        }
+
+        /* Medium phones (600px - 700px) */
+        @media screen and (min-height: 600px) and (max-height: 700px) {
+            :root {
+                --cell-size: min(11vw, 42px);
+            }
+
+            .current-score-text {
+                font-size: 2.5rem;
+            }
+
+            .piece {
+                transform: scale(0.5);
+            }
+        }
+
+        /* Regular phones (700px - 800px) */
+        @media screen and (min-height: 700px) and (max-height: 800px) {
+            :root {
+                --cell-size: min(11vw, 48px);
+            }
+        }
+
+        /* Tablets and larger phones (> 800px height) */
+        @media screen and (min-height: 800px) {
+            :root {
+                --cell-size: min(11vw, 55px);
+            }
+
+            header {
+                padding: 20px 20px 15px 20px;
+            }
+
+            .score-display-container {
+                padding: 10px 0 20px 0;
+            }
+
+            .current-score-text {
+                font-size: 3.5rem;
+            }
+
+            #piece-container {
+                min-height: 120px;
+                max-height: 160px;
+            }
+
+            .piece {
+                transform: scale(0.6);
+            }
+        }
+
+        /* Landscape mode */
+        @media screen and (orientation: landscape) and (max-height: 500px) {
+            :root {
+                --cell-size: min(8vh, 45px);
+            }
+
+            body {
+                flex-direction: row;
+            }
+
+            .game-container {
+                flex-direction: row;
+                max-width: 100%;
+                padding: 10px;
+            }
+
+            header {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                width: auto;
+                padding: 0;
+            }
+
+            .score-display-container {
+                position: absolute;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: auto;
+                padding: 0;
+            }
+
+            .current-score-text {
+                font-size: 2rem;
+            }
+
+            main {
+                flex: 1;
+            }
+
+            #piece-container {
+                flex-direction: column;
+                width: auto;
+                min-width: 100px;
+                max-width: 140px;
+                height: 100%;
+                min-height: unset;
+                max-height: unset;
+                padding: 10px;
+            }
+
+            .piece-slot {
+                width: 100%;
+                height: 30%;
+                min-height: unset;
+            }
+
+            .piece {
+                transform: scale(0.45);
+            }
+        }
+
+        /* Very wide phones in landscape */
+        @media screen and (orientation: landscape) and (min-width: 700px) and (max-height: 500px) {
+            :root {
+                --cell-size: min(10vh, 50px);
+            }
+        }
     </style>
 </head>
 
 <body>
 
-    <header>
-        <div class="high-score-container">
-            <svg class="crown-icon" viewBox="0 0 24 24">
-                <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-            </svg>
-            <span class="high-score-text" id="best-score">0</span>
+    <div class="game-container">
+        <header>
+            <div class="high-score-container">
+                <svg class="crown-icon" viewBox="0 0 24 24">
+                    <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+                </svg>
+                <span class="high-score-text" id="best-score">0</span>
+            </div>
+            <button id="btn-restart" class="settings-btn" title="Restart">⚙</button>
+        </header>
+
+        <div class="score-display-container">
+            <span class="current-score-text" id="current-score">0</span>
         </div>
-        <button id="btn-restart" class="settings-btn" title="Restart">⚙</button>
-    </header>
 
-    <div class="score-display-container">
-        <span class="current-score-text" id="current-score">0</span>
+        <main>
+            <div id="grid"></div>
+        </main>
+
+        <div id="piece-container">
+            <div class="piece-slot" id="slot-0"></div>
+            <div class="piece-slot" id="slot-1"></div>
+            <div class="piece-slot" id="slot-2"></div>
+        </div>
     </div>
-
-    <main>
-        <div id="grid"></div>
-    </main>
 
     <div id="particles"></div>
-
-    <div id="piece-container">
-        <div class="piece-slot" id="slot-0"></div>
-        <div class="piece-slot" id="slot-1"></div>
-        <div class="piece-slot" id="slot-2"></div>
-    </div>
-
     <div id="drag-layer"></div>
 
     <div id="modal-overlay">
