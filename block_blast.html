@@ -7,15 +7,13 @@
     <title>Block Blast! Pro (Fixed)</title>
     <style>
         :root {
-            /* Core Colors based on the reference image (Dark Grey Theme) */
+            /* Core Colors */
             --bg-color: #616C7A;
             --grid-bg: #262c36;
             --cell-empty: #1f252e;
             --text-color: #ffffff;
-            --header-text: #ffffff;
-            --score-bg: #262c36;
 
-            /* Block Colors (Pastel/Gummy style) */
+            /* Block Colors */
             --c1-main: #6699CC;
             --c1-shadow: #507AAA;
             --c2-main: #e88080;
@@ -29,12 +27,16 @@
             --c6-main: #55efc4;
             --c6-shadow: #00b894;
 
-            /* Responsive Dimensions - will be updated by JS */
-            --cell-size: min(11vw, 55px);
+            /* Layout - fixed heights */
+            --header-height: 45px;
+            --score-height: 55px;
+            --pieces-height: 110px;
             --gap: 3px;
-            --block-radius: 6px;
 
-            /* Safe area for notched phones */
+            /* Grid size - calculated by JS */
+            --cell-size: 40px;
+
+            /* Safe area */
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
@@ -45,33 +47,24 @@
             -webkit-user-select: none;
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
         }
 
-        html {
+        html,
+        body {
+            width: 100%;
             height: 100%;
             overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            padding-top: var(--safe-top);
-            padding-bottom: var(--safe-bottom);
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            /* Use dvh for dynamic viewport height (handles mobile browser UI) */
-            height: 100dvh;
-            height: 100vh;
-            /* Fallback for older browsers */
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-            top: 0;
-            left: 0;
         }
 
         /* --- Game Container --- */
@@ -81,103 +74,100 @@
             align-items: center;
             width: 100%;
             height: 100%;
-            max-width: 500px;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
             overflow: hidden;
         }
 
-        /* --- Header --- */
+        /* --- Header (fixed height) --- */
         header {
             width: 100%;
-            padding: 15px 20px 10px 20px;
+            height: var(--header-height);
+            max-width: 420px;
+            padding: 0 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            z-index: 10;
         }
 
         .high-score-container {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 1.3rem;
+            gap: 6px;
             color: #f1c40f;
         }
 
         .crown-icon {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             fill: #f1c40f;
         }
 
         .high-score-text {
             font-weight: 800;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
         }
 
         .settings-btn {
             background: none;
             border: none;
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             color: #fff;
             cursor: pointer;
             opacity: 0.8;
             padding: 5px;
         }
 
+        /* --- Score (fixed height) --- */
         .score-display-container {
             width: 100%;
-            text-align: center;
-            padding: 5px 0 15px 0;
+            height: var(--score-height);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             flex-shrink: 0;
         }
 
         .current-score-text {
-            font-size: 3rem;
+            font-size: 2.8rem;
             font-weight: 800;
             color: #fff;
-            text-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            text-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
             line-height: 1;
         }
 
-        /* --- Main Game Area --- */
+        /* --- Main Game Area (flexible) --- */
         main {
             flex: 1;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
-            position: relative;
             min-height: 0;
-            /* Important for flex shrinking */
+            padding: 5px;
         }
 
         #grid {
             display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr);
+            grid-template-columns: repeat(8, var(--cell-size));
+            grid-template-rows: repeat(8, var(--cell-size));
             gap: var(--gap);
             padding: var(--gap);
             background-color: var(--grid-bg);
             border-radius: 6px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            width: calc((var(--cell-size) * 8) + (var(--gap) * 9));
-            height: calc((var(--cell-size) * 8) + (var(--gap) * 9));
-            position: relative;
-            z-index: 5;
-            flex-shrink: 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         }
 
         .cell {
             background-color: var(--cell-empty);
             border-radius: 4px;
-            width: 100%;
-            height: 100%;
+            width: var(--cell-size);
+            height: var(--cell-size);
         }
 
-        /* --- Blocks Styling (3D Effect) --- */
+        /* --- Block Styling --- */
         .block-base {
             width: 100%;
             height: 100%;
@@ -196,11 +186,10 @@
             left: 20%;
             width: 60%;
             height: 60%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
             border-radius: 4px;
         }
 
-        /* Specific Colors */
         .c1 {
             background-color: var(--c1-main);
             border-bottom: 3px solid var(--c1-shadow);
@@ -231,7 +220,7 @@
             border-bottom: 3px solid var(--c6-shadow);
         }
 
-        /* Animation Classes */
+        /* Animations */
         .placed {
             animation: rubberBand 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -270,28 +259,6 @@
             }
         }
 
-        .row-flash {
-            position: absolute;
-            left: 0;
-            height: var(--cell-size);
-            width: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            z-index: 10;
-            pointer-events: none;
-            mix-blend-mode: overlay;
-        }
-
-        .col-flash {
-            position: absolute;
-            top: 0;
-            width: var(--cell-size);
-            height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            z-index: 10;
-            pointer-events: none;
-            mix-blend-mode: overlay;
-        }
-
         /* --- Particles --- */
         #particles {
             position: fixed;
@@ -310,37 +277,35 @@
             pointer-events: none;
         }
 
-        /* --- Piece Container --- */
+        /* --- Piece Container (fixed height) --- */
         #piece-container {
             width: 100%;
-            min-height: 100px;
-            max-height: 150px;
-            flex: 0 0 auto;
+            max-width: 420px;
+            height: var(--pieces-height);
             display: flex;
             justify-content: space-evenly;
             align-items: center;
-            padding: 10px 10px;
-            padding-bottom: calc(15px + var(--safe-bottom));
-            z-index: 5;
+            flex-shrink: 0;
+            padding: 5px 10px;
+            padding-bottom: calc(10px + var(--safe-bottom));
         }
 
         .piece-slot {
             width: 30%;
             height: 100%;
-            min-height: 80px;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* Scaled down pieces in hand */
         .piece {
             display: grid;
-            gap: var(--gap);
+            gap: 2px;
             cursor: grab;
             touch-action: none;
             transform-origin: center center;
-            transform: scale(0.55);
+            /* Piece scale will be set by JS based on cell size */
+            transform: scale(var(--piece-scale, 0.5));
             transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
@@ -386,25 +351,43 @@
 
         .modal {
             background: #2a364b;
-            padding: 30px;
-            border-radius: 20px;
+            padding: 25px;
+            border-radius: 16px;
             text-align: center;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
             border: 1px solid #3e506e;
             width: 85%;
-            max-width: 320px;
+            max-width: 300px;
+        }
+
+        .modal h2 {
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+
+        .modal p {
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .score-big {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #f1c40f;
+            margin: 10px 0;
         }
 
         button.action-btn {
             background: #6c5ce7;
             color: white;
             border: none;
-            padding: 15px 40px;
-            font-size: 1.1rem;
-            border-radius: 12px;
+            padding: 12px 35px;
+            font-size: 1rem;
+            border-radius: 10px;
             box-shadow: 0 4px 0 #4834d4;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 10px;
             font-weight: bold;
             transition: transform 0.1s;
         }
@@ -412,178 +395,6 @@
         button.action-btn:active {
             transform: translateY(4px);
             box-shadow: none;
-        }
-
-        /* ========== RESPONSIVE STYLES ========== */
-
-        /* Small phones (height < 600px) */
-        @media screen and (max-height: 600px) {
-            :root {
-                --cell-size: min(10vw, 38px);
-            }
-
-            header {
-                padding: 8px 15px 5px 15px;
-            }
-
-            .high-score-container {
-                font-size: 1rem;
-            }
-
-            .crown-icon {
-                width: 22px;
-                height: 22px;
-            }
-
-            .high-score-text {
-                font-size: 1.2rem;
-            }
-
-            .settings-btn {
-                font-size: 1.4rem;
-            }
-
-            .score-display-container {
-                padding: 0 0 8px 0;
-            }
-
-            .current-score-text {
-                font-size: 2rem;
-            }
-
-            #piece-container {
-                min-height: 70px;
-                max-height: 100px;
-                padding: 5px 10px;
-            }
-
-            .piece-slot {
-                min-height: 60px;
-            }
-
-            .piece {
-                transform: scale(0.45);
-            }
-        }
-
-        /* Medium phones (600px - 700px) */
-        @media screen and (min-height: 600px) and (max-height: 700px) {
-            :root {
-                --cell-size: min(11vw, 42px);
-            }
-
-            .current-score-text {
-                font-size: 2.5rem;
-            }
-
-            .piece {
-                transform: scale(0.5);
-            }
-        }
-
-        /* Regular phones (700px - 800px) */
-        @media screen and (min-height: 700px) and (max-height: 800px) {
-            :root {
-                --cell-size: min(11vw, 48px);
-            }
-        }
-
-        /* Tablets and larger phones (> 800px height) */
-        @media screen and (min-height: 800px) {
-            :root {
-                --cell-size: min(11vw, 55px);
-            }
-
-            header {
-                padding: 20px 20px 15px 20px;
-            }
-
-            .score-display-container {
-                padding: 10px 0 20px 0;
-            }
-
-            .current-score-text {
-                font-size: 3.5rem;
-            }
-
-            #piece-container {
-                min-height: 120px;
-                max-height: 160px;
-            }
-
-            .piece {
-                transform: scale(0.6);
-            }
-        }
-
-        /* Landscape mode */
-        @media screen and (orientation: landscape) and (max-height: 500px) {
-            :root {
-                --cell-size: min(8vh, 45px);
-            }
-
-            body {
-                flex-direction: row;
-            }
-
-            .game-container {
-                flex-direction: row;
-                max-width: 100%;
-                padding: 10px;
-            }
-
-            header {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: auto;
-                padding: 0;
-            }
-
-            .score-display-container {
-                position: absolute;
-                top: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: auto;
-                padding: 0;
-            }
-
-            .current-score-text {
-                font-size: 2rem;
-            }
-
-            main {
-                flex: 1;
-            }
-
-            #piece-container {
-                flex-direction: column;
-                width: auto;
-                min-width: 100px;
-                max-width: 140px;
-                height: 100%;
-                min-height: unset;
-                max-height: unset;
-                padding: 10px;
-            }
-
-            .piece-slot {
-                width: 100%;
-                height: 30%;
-                min-height: unset;
-            }
-
-            .piece {
-                transform: scale(0.45);
-            }
-        }
-
-        /* Very wide phones in landscape */
-        @media screen and (orientation: landscape) and (min-width: 700px) and (max-height: 500px) {
-            :root {
-                --cell-size: min(10vh, 50px);
-            }
         }
     </style>
 </head>
@@ -629,6 +440,62 @@
     </div>
 
     <script>
+        // --- Dynamic Layout Calculation ---
+        function calculateLayout() {
+            const root = document.documentElement;
+
+            // Get actual viewport dimensions
+            const vh = window.innerHeight;
+            const vw = window.innerWidth;
+
+            // Get CSS variable values for fixed heights
+            const styles = getComputedStyle(root);
+            const safeTop = parseInt(styles.getPropertyValue('--safe-top')) || 0;
+            const safeBottom = parseInt(styles.getPropertyValue('--safe-bottom')) || 0;
+
+            // Fixed heights for UI elements
+            const headerHeight = 45;
+            const scoreHeight = 55;
+            const piecesHeight = 110;
+            const gridPadding = 20; // Extra padding around grid
+
+            // Calculate available height for grid
+            const availableHeight = vh - safeTop - safeBottom - headerHeight - scoreHeight - piecesHeight - gridPadding;
+
+            // Calculate available width (with some padding)
+            const availableWidth = Math.min(vw - 20, 400);
+
+            // Grid needs 8 cells + gaps (9 gaps total with padding)
+            const gap = 3;
+            const totalGaps = 9 * gap;
+
+            // Calculate cell size based on both width and height constraints
+            const cellFromHeight = (availableHeight - totalGaps) / 8;
+            const cellFromWidth = (availableWidth - totalGaps) / 8;
+
+            // Use the smaller value to ensure it fits
+            let cellSize = Math.floor(Math.min(cellFromHeight, cellFromWidth));
+
+            // Clamp cell size between reasonable bounds
+            cellSize = Math.max(28, Math.min(55, cellSize));
+
+            // Calculate piece scale (smaller pieces for smaller cells)
+            const pieceScale = Math.max(0.35, Math.min(0.55, cellSize / 100));
+
+            // Apply to CSS variables
+            root.style.setProperty('--cell-size', cellSize + 'px');
+            root.style.setProperty('--piece-scale', pieceScale);
+
+            console.log(`Viewport: ${vw}x${vh}, Available: ${availableWidth}x${availableHeight}, Cell: ${cellSize}px, Scale: ${pieceScale}`);
+        }
+
+        // Calculate on load and resize
+        calculateLayout();
+        window.addEventListener('resize', calculateLayout);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(calculateLayout, 100);
+        });
+
         // --- Audio System ---
         class SoundManager {
             constructor() {
