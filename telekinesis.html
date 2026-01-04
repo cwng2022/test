@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>念力大師 - Telekinesis Master</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --energy-color: #00ffff;
+            --enemy-color: #ff3333;
+            --rock-color: #8888aa;
+            --boss-color: #ff00ff;
+            --powerup-blue: #00aaff;
+            --powerup-red: #ff4444;
+            --powerup-green: #44ff44;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--bg-color);
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #webcam {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid var(--energy-color);
+            border-radius: 8px;
+            transform: scaleX(-1);
+            opacity: 0.6;
+            z-index: 5;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 30px;
+        }
+
+        #topBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        #lives {
+            font-size: 32px;
+            display: flex;
+            gap: 5px;
+        }
+
+        #waveDisplay {
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            text-align: center;
+        }
+
+        #scoreDisplay {
+            text-align: right;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--energy-color);
+            text-shadow: 0 0 10px var(--energy-color);
+        }
+
+        #highScore {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        #comboDisplay {
+            position: absolute;
+            bottom: 80px;
+            right: 30px;
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffaa00;
+            text-shadow: 0 0 15px #ffaa00;
+            transition: transform 0.1s;
+        }
+
+        #comboDisplay.shake {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0) rotate(0);
+            }
+
+            25% {
+                transform: translateX(-5px) rotate(-3deg);
+            }
+
+            75% {
+                transform: translateX(5px) rotate(3deg);
+            }
+        }
+
+        #powerupIndicator {
+            position: absolute;
+            bottom: 140px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .powerup-active {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        #status {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #startScreen,
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 16, 0.95);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 60px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .guide-box {
+            display: flex;
+            gap: 40px;
+            margin: 40px 0;
+        }
+
+        .guide-item {
+            text-align: center;
+        }
+
+        .guide-icon {
+            font-size: 50px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid var(--energy-color);
+            color: var(--energy-color);
+            padding: 15px 40px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 30px;
+            transition: 0.2s;
+            pointer-events: auto;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            background: var(--energy-color);
+            color: #000;
+            box-shadow: 0 0 20px var(--energy-color);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #waveTransition {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 30px var(--energy-color);
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        #waveTransition.show {
+            opacity: 1;
+            animation: waveIn 2s ease-out forwards;
+        }
+
+        @keyframes waveIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+
+            20% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+
+            80% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0;
+            }
+        }
+
+        #bossWarning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--boss-color);
+            text-shadow: 0 0 30px var(--boss-color);
+            z-index: 15;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #bossWarning.show {
+            animation: bossWarn 1.5s ease-out forwards;
+        }
+
+        @keyframes bossWarn {
+
+            0%,
+            20%,
+            40%,
+            60%,
+            80% {
+                opacity: 1;
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        #screenFlash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--boss-color);
+            z-index: 14;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #screenFlash.flash {
+            animation: screenFlash 0.5s ease-out;
+        }
+
+        @keyframes screenFlash {
+            0% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        #achievements {
+            position: absolute;
+            top: 100px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 16;
+        }
+
+        .achievement {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+            border: 2px solid gold;
+            padding: 10px 20px;
+            border-radius: 10px;
+            animation: slideIn 0.5s ease-out, fadeOut 0.5s 2.5s forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        #gameOverScreen h1 {
+            font-size: 72px;
+            color: #ff3333;
+            background: none;
+            -webkit-text-fill-color: #ff3333;
+            text-shadow: 0 0 30px #ff3333;
+        }
+
+        .final-score {
+            font-size: 48px;
+            margin: 20px 0;
+            color: var(--energy-color);
+        }
+
+        .stats {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.8);
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="container">
+        <video id="webcam" playsinline></video>
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="ui">
+            <div id="topBar">
+                <div id="lives">❤️❤️❤️</div>
+                <div id="waveDisplay">WAVE 1</div>
+                <div id="scoreDisplay">
+                    <div id="score">0</div>
+                    <div id="highScore">HIGH: 0</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="comboDisplay" class="hidden">COMBO x1</div>
+        <div id="powerupIndicator"></div>
+        <div id="status">準備就緒...</div>
+        <div id="waveTransition"></div>
+        <div id="bossWarning">⚠️ BOSS ⚠️</div>
+        <div id="screenFlash"></div>
+        <div id="achievements"></div>
+
+        <div id="startScreen">
+            <h1>念力大師<br>Telekinesis Master</h1>
+            <p>用你的雙手掌控物體，擊退敵人！</p>
+
+            <div class="guide-box">
+                <div class="guide-item">
+                    <div class="guide-icon">🖐️</div>
+                    <div>張開手掌<br>移動/瞄準</div>
+                </div>
+                <div class="guide-item">
+                    <div class="guide-icon">✊</div>
+                    <div>握緊拳頭<br>抓取物體</div>
+                </div>
+                <div class="guide-item">
+                    <div class="guide-icon">💨🖐️</div>
+                    <div>快速揮動 + 放開<br>投擲攻擊</div>
+                </div>
+            </div>
+
+            <button id="startBtn" class="btn" disabled>載入中...</button>
+        </div>
+
+        <div id="gameOverScreen" class="hidden">
+            <h1>GAME OVER</h1>
+            <div class="final-score">SCORE: <span id="finalScore">0</span></div>
+            <div class="stats">最高紀錄: <span id="finalHighScore">0</span></div>
+            <div class="stats">最高波數: <span id="finalWave">0</span></div>
+            <div class="stats">最高連擊: <span id="finalCombo">0</span></div>
+            <button id="restartBtn" class="btn">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const video = document.getElementById('webcam');
+        const statusEl = document.getElementById('status');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highScore');
+        const livesEl = document.getElementById('lives');
+        const waveDisplayEl = document.getElementById('waveDisplay');
+        const comboDisplayEl = document.getElementById('comboDisplay');
+        const waveTransitionEl = document.getElementById('waveTransition');
+        const bossWarningEl = document.getElementById('bossWarning');
+        const screenFlashEl = document.getElementById('screenFlash');
+        const achievementsEl = document.getElementById('achievements');
+        const powerupIndicatorEl = document.getElementById('powerupIndicator');
+
+        // === CONFIG ===
+        const CONFIG = {
+            grabDistance: 80,
+            fistThreshold: 8.0,
+            throwForceMultiplier: 0.25,
+            gravity: 0.3,
+            friction: 0.98,
+            floorY: 0,
+            powerupDropChance: 0.20, // 20%
+            perfectThrowSpeed: 20
+        };
+
+        // === STATE ===
+        const state = {
+            w: 0, h: 0,
+            hand: { x: 0, y: 0, isOpen: true, velocity: { x: 0, y: 0 }, history: [] },
+            grabbedObjects: [],
+            maxGrab: 1,
+            objects: [],
+            enemies: [],
+            particles: [],
+            powerups: [],
+            floatingTexts: [],
+
+            // Game Progression
+            score: 0,
+            highScore: parseInt(localStorage.getItem('telekinesisHighScore')) || 0,
+            lives: 3,
+            wave: 1,
+            enemiesSpawnedThisWave: 0,
+            enemiesKilledThisWave: 0,
+            waveInTransition: false,
+
+            // Combo
+            combo: 0,
+            comboMultiplier: 1,
+            maxCombo: 0,
+
+            // Power-ups
+            hasShield: false,
+            multiGrabTimer: 0,
+            explosiveRock: null,
+
+            // Boss
+            bossActive: false,
+
+            // Game State
+            running: false,
+            gameOver: false,
+            frame: 0
+        };
+
+        // Load high score
+        highScoreEl.innerText = 'HIGH: ' + state.highScore;
+
+        function resize() {
+            state.w = canvas.width = window.innerWidth;
+            state.h = canvas.height = window.innerHeight;
+            CONFIG.floorY = state.h - 50;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // === WAVE CONFIG ===
+        function getWaveConfig(wave) {
+            const isBossWave = wave % 5 === 0;
+            let enemyCount, types;
+
+            // Speed scales with wave: starts at 2, increases by 15% each wave
+            const speedMultiplier = 1 + (wave - 1) * 0.15;
+            const baseSpeed = 2 * speedMultiplier;
+
+            // Spawn interval decreases with wave (faster spawning)
+            const spawnInterval = Math.max(60, 120 - wave * 8);
+
+            if (wave <= 3) {
+                enemyCount = 4 + wave;
+                types = ['basic'];
+            } else if (wave <= 6) {
+                enemyCount = 6 + wave;
+                types = ['basic', 'fast'];
+            } else {
+                enemyCount = 8 + wave;
+                types = ['basic', 'fast', 'shield'];
+            }
+
+            return { enemyCount, baseSpeed, types, isBossWave, spawnInterval };
+        }
+
+        // === CLASSES ===
+
+        class Entity {
+            constructor(x, y, r, color) {
+                this.x = x; this.y = y; this.r = r;
+                this.color = color;
+                this.vx = 0; this.vy = 0;
+                this.active = true;
+            }
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        class Throwable extends Entity {
+            constructor(isExplosive = false) {
+                super(
+                    Math.random() * (state.w - 100) + 50,
+                    state.h - 150 - Math.random() * 200,
+                    30 + Math.random() * 20,
+                    isExplosive ? '#ff4444' : '#8888aa'
+                );
+                this.grabbed = false;
+                this.rotation = Math.random() * Math.PI;
+                this.rotSpeed = 0;
+                this.isExplosive = isExplosive;
+            }
+
+            update() {
+                if (this.grabbed) {
+                    this.vx = (state.hand.x - this.x) * 0.25;
+                    this.vy = (state.hand.y - this.y) * 0.25;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.rotSpeed = this.vx * 0.05;
+                } else {
+                    this.vy += CONFIG.gravity;
+                    this.vx *= CONFIG.friction;
+                    this.vy *= CONFIG.friction;
+
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    if (this.y + this.r > CONFIG.floorY) {
+                        this.y = CONFIG.floorY - this.r;
+                        this.vy *= -0.6;
+                        this.vx *= 0.8;
+                    }
+
+                    if (this.x - this.r < 0) { this.x = this.r; this.vx *= -0.8; }
+                    if (this.x + this.r > state.w) { this.x = state.w - this.r; this.vx *= -0.8; }
+                }
+                this.rotation += this.rotSpeed;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                ctx.fillStyle = this.grabbed ? '#fff' : this.color;
+
+                if (this.grabbed) {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = this.isExplosive ? '#ff4444' : '#00ffff';
+                }
+
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = i * Math.PI / 3;
+                    ctx.lineTo(Math.cos(angle) * this.r, Math.sin(angle) * this.r);
+                }
+                ctx.fill();
+
+                if (this.grabbed) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r * 0.4, 0, Math.PI * 2);
+                    ctx.fillStyle = this.isExplosive ? '#ffaa00' : '#00ffff';
+                    ctx.fill();
+                }
+
+                if (this.isExplosive && !this.grabbed) {
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.font = `${this.r * 0.8}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('💥', 0, 0);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Enemy extends Entity {
+            constructor(type = 'basic', isBoss = false, waveBaseSpeed = 2) {
+                const size = isBoss ? 70 : (type === 'shield' ? 45 : 35);
+                super(
+                    Math.random() * state.w,
+                    -50,
+                    size,
+                    isBoss ? '#ff00ff' : (type === 'shield' ? '#4488ff' : '#ff3333')
+                );
+
+                this.type = type;
+                this.isBoss = isBoss;
+                this.hp = isBoss ? 300 : (type === 'shield' ? 150 : 100);
+                this.maxHp = this.hp;
+                this.hasShield = type === 'shield';
+
+                const targetX = state.w / 2 + (Math.random() - 0.5) * 400;
+                const angle = Math.atan2(CONFIG.floorY - this.y, targetX - this.x);
+
+                // Speed now uses wave-based scaling
+                let speed;
+                if (isBoss) {
+                    speed = 1.5 + (waveBaseSpeed - 2) * 0.3; // Boss also gets faster but slower rate
+                } else if (type === 'fast') {
+                    speed = waveBaseSpeed * 1.8 + Math.random() * 1.5; // Fast type: 180% of base
+                } else {
+                    speed = waveBaseSpeed + Math.random() * 1; // Basic: base speed + small random
+                }
+
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.baseVy = this.vy;
+                this.speed = speed; // Store for debugging
+            }
+
+            update() {
+                if (this.isBoss) {
+                    // Boss weave pattern
+                    this.vx = Math.sin(state.frame * 0.03) * 3;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Check if enemy escaped
+                if (this.y > state.h + 50) {
+                    this.active = false;
+                    enemyEscaped(this);
+                }
+
+                // Keep in bounds horizontally
+                if (this.x < this.r) this.x = this.r;
+                if (this.x > state.w - this.r) this.x = state.w - this.r;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shield effect
+                if (this.hasShield) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r + 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(68, 136, 255, 0.5)';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+
+                // Main body
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.r * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(Math.sin(state.frame * 0.1) * 5, 0, this.r * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Boss crown
+                if (this.isBoss) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.font = '30px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('👑', 0, -this.r - 10);
+                }
+
+                // HP bar for boss/shield enemies
+                if (this.isBoss || this.hasShield) {
+                    const barWidth = this.r * 2;
+                    const barHeight = 6;
+                    const hpPercent = this.hp / this.maxHp;
+
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(-barWidth / 2, this.r + 10, barWidth, barHeight);
+                    ctx.fillStyle = this.isBoss ? '#ff00ff' : '#4488ff';
+                    ctx.fillRect(-barWidth / 2, this.r + 10, barWidth * hpPercent, barHeight);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class PowerUp extends Entity {
+            constructor(x, y, type) {
+                const colors = { energy: '#00aaff', explosive: '#ff4444', shield: '#44ff44' };
+                super(x, y, 25, colors[type]);
+                this.type = type;
+                this.vy = 1;
+                this.pulse = 0;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.pulse += 0.1;
+
+                if (this.y > state.h + 50) {
+                    this.active = false;
+                }
+
+                // Check collection
+                const d = Math.hypot(state.hand.x - this.x, state.hand.y - this.y);
+                if (d < this.r + 30) {
+                    this.active = false;
+                    collectPowerUp(this.type);
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                const pulseScale = 1 + Math.sin(this.pulse) * 0.1;
+                ctx.scale(pulseScale, pulseScale);
+
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.color;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                const icons = { energy: '⚡', explosive: '💥', shield: '🛡️' };
+                ctx.fillText(icons[this.type], 0, 0);
+
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, scale = 1) {
+                this.x = x; this.y = y; this.color = color;
+                const a = Math.random() * Math.PI * 2;
+                const s = Math.random() * 10 * scale;
+                this.vx = Math.cos(a) * s;
+                this.vy = Math.sin(a) * s;
+                this.life = 1.0;
+                this.size = 4 * scale;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.vy += 0.1; // Gravity
+                this.life -= 0.03;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, size = 24) {
+                this.x = x; this.y = y;
+                this.text = text;
+                this.color = color;
+                this.size = size;
+                this.life = 1.0;
+                this.vy = -2;
+            }
+            update() {
+                this.y += this.vy;
+                this.life -= 0.02;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.font = `bold ${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // === GAME LOGIC ===
+
+        function spawnParticle(x, y, color, count = 10, scale = 1) {
+            const comboScale = 1 + (state.comboMultiplier - 1) * 0.3;
+            for (let i = 0; i < count * comboScale; i++) {
+                state.particles.push(new Particle(x, y, color, scale));
+            }
+        }
+
+        function addFloatingText(x, y, text, color, size = 24) {
+            state.floatingTexts.push(new FloatingText(x, y, text, color, size));
+        }
+
+        function showAchievement(text) {
+            const div = document.createElement('div');
+            div.className = 'achievement';
+            div.innerHTML = `🏆 ${text}`;
+            achievementsEl.appendChild(div);
+
+            setTimeout(() => {
+                if (div.parentNode) div.parentNode.removeChild(div);
+            }, 3000);
+        }
+
+        function updateComboDisplay() {
+            if (state.combo >= 3) {
+                comboDisplayEl.classList.remove('hidden');
+                comboDisplayEl.innerHTML = `COMBO x${state.comboMultiplier} 🔥`;
+                comboDisplayEl.classList.add('shake');
+                setTimeout(() => comboDisplayEl.classList.remove('shake'), 300);
+            } else {
+                comboDisplayEl.classList.add('hidden');
+            }
+        }
+
+        function updateLivesDisplay() {
+            const hearts = [];
+            for (let i = 0; i < state.lives; i++) hearts.push('❤️');
+            for (let i = state.lives; i < 3; i++) hearts.push('🖤');
+            livesEl.innerHTML = hearts.join('');
+        }
+
+        function updatePowerupIndicator() {
+            let html = '';
+            if (state.hasShield) {
+                html += `<div class="powerup-active" style="background: rgba(68,255,68,0.3); border: 2px solid #44ff44;">🛡️ 護盾啟動</div>`;
+            }
+            if (state.multiGrabTimer > 0) {
+                const secs = Math.ceil(state.multiGrabTimer / 60);
+                html += `<div class="powerup-active" style="background: rgba(0,170,255,0.3); border: 2px solid #00aaff;">⚡ 多重抓取 ${secs}s</div>`;
+            }
+            powerupIndicatorEl.innerHTML = html;
+        }
+
+        function collectPowerUp(type) {
+            spawnParticle(state.hand.x, state.hand.y, '#fff', 15);
+
+            switch (type) {
+                case 'energy':
+                    state.multiGrabTimer = 600; // 10 seconds
+                    state.maxGrab = 2;
+                    showAchievement('多重抓取啟動！');
+                    break;
+                case 'explosive':
+                    state.objects.push(new Throwable(true));
+                    showAchievement('獲得爆炸石塊！');
+                    break;
+                case 'shield':
+                    state.hasShield = true;
+                    showAchievement('護盾啟動！');
+                    break;
+            }
+            updatePowerupIndicator();
+        }
+
+        function enemyEscaped(enemy) {
+            // Reset combo
+            state.combo = 0;
+            state.comboMultiplier = 1;
+            updateComboDisplay();
+
+            // Handle damage
+            if (state.hasShield) {
+                state.hasShield = false;
+                updatePowerupIndicator();
+                addFloatingText(enemy.x, state.h - 100, '護盾抵擋！', '#44ff44', 28);
+                spawnParticle(enemy.x, state.h - 50, '#44ff44', 20);
+            } else {
+                state.lives--;
+                updateLivesDisplay();
+
+                // Screen shake effect
+                document.body.style.transform = 'translateX(10px)';
+                setTimeout(() => document.body.style.transform = '', 50);
+                setTimeout(() => document.body.style.transform = 'translateX(-10px)', 100);
+                setTimeout(() => document.body.style.transform = '', 150);
+
+                if (state.lives <= 0) {
+                    gameOver();
+                }
+            }
+        }
+
+        function gameOver() {
+            state.gameOver = true;
+            state.running = false;
+
+            // Update high score
+            if (state.score > state.highScore) {
+                state.highScore = state.score;
+                localStorage.setItem('telekinesisHighScore', state.highScore);
+                showAchievement('新紀錄！');
+            }
+
+            // Show game over screen
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            document.getElementById('finalScore').innerText = state.score;
+            document.getElementById('finalHighScore').innerText = state.highScore;
+            document.getElementById('finalWave').innerText = state.wave;
+            document.getElementById('finalCombo').innerText = state.maxCombo;
+        }
+
+        function resetGame() {
+            state.score = 0;
+            state.lives = 3;
+            state.wave = 1;
+            state.combo = 0;
+            state.comboMultiplier = 1;
+            state.maxCombo = 0;
+            state.enemiesSpawnedThisWave = 0;
+            state.enemiesKilledThisWave = 0;
+            state.waveInTransition = false;
+            state.hasShield = false;
+            state.multiGrabTimer = 0;
+            state.maxGrab = 1;
+            state.bossActive = false;
+            state.gameOver = false;
+
+            state.objects = [];
+            state.enemies = [];
+            state.particles = [];
+            state.powerups = [];
+            state.floatingTexts = [];
+            state.grabbedObjects = [];
+
+            // Spawn initial rocks
+            for (let i = 0; i < 3; i++) state.objects.push(new Throwable());
+
+            // Update UI
+            scoreEl.innerText = '0';
+            updateLivesDisplay();
+            updateComboDisplay();
+            updatePowerupIndicator();
+            waveDisplayEl.innerText = 'WAVE 1';
+
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            state.running = true;
+        }
+
+        function startWaveTransition() {
+            state.waveInTransition = true;
+            state.wave++;
+
+            waveTransitionEl.innerHTML = `WAVE ${state.wave}`;
+            waveTransitionEl.classList.add('show');
+            waveDisplayEl.innerText = `WAVE ${state.wave}`;
+
+            const config = getWaveConfig(state.wave);
+            if (config.isBossWave) {
+                setTimeout(() => {
+                    bossWarningEl.classList.add('show');
+                    screenFlashEl.classList.add('flash');
+                    setTimeout(() => {
+                        bossWarningEl.classList.remove('show');
+                        screenFlashEl.classList.remove('flash');
+                    }, 1500);
+                }, 500);
+            }
+
+            setTimeout(() => {
+                waveTransitionEl.classList.remove('show');
+                state.waveInTransition = false;
+                state.enemiesSpawnedThisWave = 0;
+                state.enemiesKilledThisWave = 0;
+            }, 2000);
+        }
+
+        function spawnEnemy() {
+            const config = getWaveConfig(state.wave);
+
+            if (state.enemiesSpawnedThisWave >= config.enemyCount) return;
+
+            // Spawn boss on boss waves
+            if (config.isBossWave && !state.bossActive && state.enemiesSpawnedThisWave === 0) {
+                state.enemies.push(new Enemy('boss', true, config.baseSpeed));
+                state.bossActive = true;
+                state.enemiesSpawnedThisWave++;
+                return;
+            }
+
+            // Random type from wave types - pass baseSpeed from wave config
+            const type = config.types[Math.floor(Math.random() * config.types.length)];
+            state.enemies.push(new Enemy(type, false, config.baseSpeed));
+            state.enemiesSpawnedThisWave++;
+        }
+
+        function checkHandInteraction() {
+            if (state.hand.history.length > 1) {
+                const last = state.hand.history[state.hand.history.length - 1];
+                const prev = state.hand.history[state.hand.history.length - 2];
+                state.hand.velocity.x = last.x - prev.x;
+                state.hand.velocity.y = last.y - prev.y;
+            }
+
+            if (!state.hand.isOpen) {
+                // GRAB
+                if (state.grabbedObjects.length < state.maxGrab) {
+                    let nearest = null;
+                    let minDist = CONFIG.grabDistance;
+
+                    for (let obj of state.objects) {
+                        if (obj.grabbed) continue;
+                        const d = Math.hypot(state.hand.x - obj.x, state.hand.y - obj.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = obj;
+                        }
+                    }
+
+                    if (nearest) {
+                        state.grabbedObjects.push(nearest);
+                        nearest.grabbed = true;
+                        nearest.vx *= 0.1;
+                        nearest.vy *= 0.1;
+                    }
+                }
+            } else {
+                // RELEASE
+                for (let obj of state.grabbedObjects) {
+                    obj.grabbed = false;
+
+                    let throwVx = state.hand.velocity.x * CONFIG.throwForceMultiplier;
+                    let throwVy = state.hand.velocity.y * CONFIG.throwForceMultiplier;
+
+                    const maxSpeed = 30;
+                    throwVx = Math.max(-maxSpeed, Math.min(maxSpeed, throwVx * 1.5));
+                    throwVy = Math.max(-maxSpeed, Math.min(maxSpeed, throwVy * 1.5));
+
+                    obj.vx = throwVx;
+                    obj.vy = throwVy;
+                }
+                state.grabbedObjects = [];
+            }
+        }
+
+        function handleCollision(obj, enemy) {
+            const damage = obj.isExplosive ? 200 : 100;
+            enemy.hp -= damage;
+
+            if (obj.isExplosive) {
+                // AOE damage
+                spawnParticle(obj.x, obj.y, '#ff4444', 30, 2);
+                spawnParticle(obj.x, obj.y, '#ffaa00', 20, 1.5);
+
+                for (let other of state.enemies) {
+                    if (other === enemy || !other.active) continue;
+                    const d = Math.hypot(obj.x - other.x, obj.y - other.y);
+                    if (d < 150) {
+                        other.hp -= 100;
+                        if (other.hp <= 0) {
+                            killEnemy(other, obj);
+                        }
+                    }
+                }
+
+                // Remove explosive rock
+                obj.active = false;
+            }
+
+            if (enemy.hp <= 0) {
+                killEnemy(enemy, obj);
+            } else {
+                // Hit but not killed
+                spawnParticle(enemy.x, enemy.y, enemy.color, 5);
+                if (enemy.hasShield && enemy.hp < enemy.maxHp * 0.5) {
+                    enemy.hasShield = false;
+                }
+            }
+
+            // Bounce object
+            obj.vx *= -0.5;
+            obj.vy *= -0.5;
+        }
+
+        function killEnemy(enemy, obj) {
+            enemy.active = false;
+            state.enemiesKilledThisWave++;
+
+            // Particles
+            spawnParticle(enemy.x, enemy.y, enemy.color, enemy.isBoss ? 30 : 15);
+
+            // Combo
+            state.combo++;
+            if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+            if (state.combo >= 10) state.comboMultiplier = 5;
+            else if (state.combo >= 5) state.comboMultiplier = 3;
+            else if (state.combo >= 3) state.comboMultiplier = 2;
+            else state.comboMultiplier = 1;
+
+            updateComboDisplay();
+
+            // Score
+            let baseScore = enemy.isBoss ? 1000 : 100;
+            const throwSpeed = Math.hypot(obj.vx, obj.vy);
+            const speedBonus = throwSpeed > CONFIG.perfectThrowSpeed ? 50 : 0;
+            const totalScore = (baseScore + speedBonus) * state.comboMultiplier;
+
+            state.score += totalScore;
+            scoreEl.innerText = state.score;
+
+            // Floating score
+            let scoreText = `+${totalScore}`;
+            if (speedBonus > 0) scoreText += ' PERFECT!';
+            addFloatingText(enemy.x, enemy.y, scoreText, '#ffff00', speedBonus > 0 ? 32 : 24);
+
+            // Boss specific
+            if (enemy.isBoss) {
+                state.bossActive = false;
+                showAchievement('BOSS 擊敗！');
+            }
+
+            // Power-up drop
+            if (Math.random() < CONFIG.powerupDropChance) {
+                const types = ['energy', 'explosive', 'shield'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                state.powerups.push(new PowerUp(enemy.x, enemy.y, type));
+            }
+
+            // Check wave complete
+            const config = getWaveConfig(state.wave);
+            if (state.enemiesKilledThisWave >= config.enemyCount && !state.waveInTransition) {
+                startWaveTransition();
+            }
+        }
+
+        function update() {
+            if (!state.running || state.gameOver) return;
+            state.frame++;
+
+            // Multi-grab timer
+            if (state.multiGrabTimer > 0) {
+                state.multiGrabTimer--;
+                if (state.multiGrabTimer <= 0) {
+                    state.maxGrab = 1;
+                    updatePowerupIndicator();
+                }
+            }
+
+            // Spawn enemies using wave config interval
+            const config = getWaveConfig(state.wave);
+
+            if (!state.waveInTransition &&
+                state.frame % config.spawnInterval === 0 &&
+                state.enemiesSpawnedThisWave < config.enemyCount) {
+                spawnEnemy();
+            }
+
+            // Spawn rocks if running low
+            if (state.objects.filter(o => o.active && !o.isExplosive).length < 3) {
+                if (Math.random() < 0.03) state.objects.push(new Throwable());
+            }
+
+            // Update all
+            state.objects.forEach(o => o.update());
+            state.enemies.forEach(e => e.update());
+            state.particles.forEach(p => p.update());
+            state.powerups.forEach(p => p.update());
+            state.floatingTexts.forEach(t => t.update());
+
+            // Collisions
+            for (let obj of state.objects) {
+                if (!obj.active) continue;
+                const speed = Math.hypot(obj.vx, obj.vy);
+                if (speed < 5) continue;
+
+                for (let enemy of state.enemies) {
+                    if (!enemy.active) continue;
+                    const d = Math.hypot(obj.x - enemy.x, obj.y - enemy.y);
+                    if (d < obj.r + enemy.r) {
+                        handleCollision(obj, enemy);
+                    }
+                }
+            }
+
+            // Cleanup
+            state.particles = state.particles.filter(p => p.life > 0);
+            state.enemies = state.enemies.filter(e => e.active);
+            state.objects = state.objects.filter(o => o.active);
+            state.powerups = state.powerups.filter(p => p.active);
+            state.floatingTexts = state.floatingTexts.filter(t => t.life > 0);
+
+            // Update high score display
+            if (state.score > state.highScore) {
+                highScoreEl.innerText = 'HIGH: ' + state.score;
+            }
+        }
+
+        function draw() {
+            // Clear with trail
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Floor
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, CONFIG.floorY, state.w, state.h - CONFIG.floorY);
+
+            // Draw all
+            state.objects.forEach(o => o.draw(ctx));
+            state.powerups.forEach(p => p.draw(ctx));
+            state.enemies.forEach(e => e.draw(ctx));
+            state.particles.forEach(p => p.draw(ctx));
+            state.floatingTexts.forEach(t => t.draw(ctx));
+
+            // Draw Hand Cursor
+            const cursorX = state.hand.x;
+            const cursorY = state.hand.y;
+
+            ctx.save();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = state.hand.isOpen ? '#00ffff' : '#ffaa00';
+            ctx.strokeStyle = state.hand.isOpen ? '#00ffff' : '#ffaa00';
+            ctx.lineWidth = 4;
+
+            // Shield indicator on cursor
+            if (state.hasShield) {
+                ctx.beginPath();
+                ctx.arc(cursorX, cursorY, 45, 0, Math.PI * 2);
+                ctx.strokeStyle = '#44ff44';
+                ctx.stroke();
+            }
+
+            if (state.hand.isOpen) {
+                ctx.beginPath();
+                ctx.arc(cursorX, cursorY, 30, 0, Math.PI * 2);
+                ctx.strokeStyle = '#00ffff';
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(cursorX, cursorY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ffff';
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.arc(cursorX, cursorY, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 170, 0, 0.5)';
+                ctx.fill();
+                ctx.strokeStyle = '#ffaa00';
+                ctx.stroke();
+
+                for (let i = 0; i < 4; i++) {
+                    const a = i * Math.PI / 2 + Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(cursorX + Math.cos(a) * 30, cursorY + Math.sin(a) * 30);
+                    ctx.lineTo(cursorX + Math.cos(a) * 10, cursorY + Math.sin(a) * 10);
+                    ctx.stroke();
+                }
+            }
+
+            // Lines to grabbed objects
+            for (let obj of state.grabbedObjects) {
+                ctx.beginPath();
+                ctx.moveTo(cursorX, cursorY);
+                ctx.lineTo(obj.x, obj.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            requestAnimationFrame(draw);
+        }
+
+        // === MEDIA PIPE ===
+
+        function onResults(results) {
+            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+
+            const lm = results.multiHandLandmarks[0];
+
+            const palmX = (1 - lm[9].x) * canvas.width;
+            const palmY = lm[9].y * canvas.height;
+
+            state.hand.x = state.hand.x * 0.7 + palmX * 0.3;
+            state.hand.y = state.hand.y * 0.7 + palmY * 0.3;
+
+            state.hand.history.push({ x: state.hand.x, y: state.hand.y });
+            if (state.hand.history.length > 5) state.hand.history.shift();
+
+            let curledFingers = 0;
+            const fingerIndices = [
+                { tip: 8, pip: 6 },
+                { tip: 12, pip: 10 },
+                { tip: 16, pip: 14 },
+                { tip: 20, pip: 18 }
+            ];
+
+            const dist = (i1, i2) => Math.hypot(lm[i1].x - lm[i2].x, lm[i1].y - lm[i2].y);
+
+            for (let f of fingerIndices) {
+                if (dist(f.tip, 0) < dist(f.pip, 0)) {
+                    curledFingers++;
+                }
+            }
+
+            const isFist = curledFingers >= 3;
+            state.hand.isOpen = !isFist;
+
+            statusEl.innerHTML = `手指彎曲數: ${curledFingers} <br> 狀態: <span style="color:${state.hand.isOpen ? '#00ffff' : '#ffaa00'}">${state.hand.isOpen ? "張開 (移動)" : "握拳 (抓取)"}</span>`;
+
+            checkHandInteraction();
+        }
+
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        const camera = new Camera(video, {
+            onFrame: async () => {
+                await hands.send({ image: video });
+                if (state.running) update();
+            },
+            width: 1280,
+            height: 720
+        });
+
+        // === MOUSE FALLBACK ===
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            state.hand.x = e.clientX - rect.left;
+            state.hand.y = e.clientY - rect.top;
+
+            state.hand.history.push({ x: state.hand.x, y: state.hand.y });
+            if (state.hand.history.length > 5) state.hand.history.shift();
+
+            statusEl.innerHTML = `滑鼠模式 <br> 狀態: <span style="color:${state.hand.isOpen ? '#00ffff' : '#ffaa00'}">${state.hand.isOpen ? "張開 (移動)" : "握拳 (抓取)"}</span>`;
+            checkHandInteraction();
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            state.hand.isOpen = false;
+            statusEl.innerHTML = `滑鼠模式 <br> 狀態: <span style="color:#ffaa00">握拳 (抓取)</span>`;
+            checkHandInteraction();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            state.hand.isOpen = true;
+            statusEl.innerHTML = `滑鼠模式 <br> 狀態: <span style="color:#00ffff">張開 (移動)</span>`;
+            checkHandInteraction();
+        });
+
+        // === INIT ===
+
+        for (let i = 0; i < 3; i++) state.objects.push(new Throwable());
+        updateLivesDisplay();
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').classList.add('hidden');
+            state.running = true;
+            draw();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            resetGame();
+        });
+
+        camera.start().then(() => {
+            const btn = document.getElementById('startBtn');
+            btn.removeAttribute('disabled');
+            btn.innerText = "開始 念力";
+            draw();
+        });
+
+    </script>
+</body>
+
+</html>
