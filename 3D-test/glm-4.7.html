@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 粒子手勢互動系統</title>
+    
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入 MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        :root {
+            --primary-color: #00d2ff;
+            --bg-color: #050505;
+            --panel-bg: rgba(20, 20, 25, 0.75);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+        }
+
+        /* 3D 畫布容器 */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 攝像頭預覽（隱藏在角落，用於調試） */
+        #input-video {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 160px;
+            height: 120px;
+            transform: scaleX(-1); /* 鏡像翻轉 */
+            border-radius: 8px;
+            opacity: 0.5;
+            z-index: 2;
+            pointer-events: none;
+            border: 1px solid #333;
+        }
+
+        /* 控制面板 */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 15px 0;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        select, input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        select:hover, input[type="color"]:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* 狀態指示器 */
+        #status-display {
+            margin-top: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* 載入動畫 */
+        #loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 12px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .btn-reload {
+            background: var(--primary-color);
+            border: none;
+            padding: 8px 16px;
+            color: #000;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            display: none; /* 有錯誤時才顯示 */
+        }
+
+        /* 手勢提示 */
+        .gesture-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        
+        .gesture-text {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        .sub-text {
+            font-size: 1rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D 場景容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 攝像頭預覽 -->
+    <video id="input-video" playsinline></video>
+
+    <!-- 載入中提示 -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="loader-text">正在載入 AI 模型與初始化鏡頭...</div>
+        <button class="btn-reload" id="reload-btn" onclick="location.reload()">重新載入</button>
+    </div>
+
+    <!-- 中心手勢提示文字 -->
+    <div class="gesture-hint" id="gesture-hint">
+        <div class="gesture-text" id="gesture-main-text">張開手掌</div>
+        <div class="sub-text" id="gesture-sub-text">以擴張粒子</div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div id="ui-panel">
+        <h1>粒子系統控制台</h1>
+        
+        <div class="control-group">
+            <label for="shape-select">粒子形狀</label>
+            <select id="shape-select">
+                <option value="sphere">球體</option>
+                <option value="heart" selected>愛心</option>
+                <option value="flower">花朵</option>
+                <option value="saturn">土星</option>
+                <option value="fireworks">煙火</option>
+                <option value="galaxy">螺旋星系</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="color-picker">粒子顏色</label>
+            <input type="color" id="color-picker" value="#00d2ff">
+        </div>
+
+        <div id="status-display">
+            <div class="status-item">
+                <span>偵測狀態:</span>
+                <span id="detection-status" class="status-value">等待中...</span>
+            </div>
+            <div class="status-item">
+                <span>手勢判斷:</span>
+                <span id="gesture-status" class="status-value">無</span>
+            </div>
+            <div class="status-item">
+                <span>粒子數量:</span>
+                <span id="particle-count" class="status-value">15000</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 1. 初始化 Three.js 場景
+         */
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        // 添加霧效以增加深度感
+        scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 30;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        /**
+         * 2. 粒子系統變數與狀態
+         */
+        let particleSystem;
+        let particleCount = 15000;
+        let targetScale = 1.0;
+        let currentScale = 1.0;
+        let basePositions = []; // 儲存形狀的基礎座標
+        let particleColor = new THREE.Color(0x00d2ff);
+        
+        // UI 元素
+        const shapeSelect = document.getElementById('shape-select');
+        const colorPicker = document.getElementById('color-picker');
+        const detectionStatusEl = document.getElementById('detection-status');
+        const gestureStatusEl = document.getElementById('gesture-status');
+        const particleCountEl = document.getElementById('particle-count');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+        const gestureHint = document.getElementById('gesture-hint');
+        const gestureMainText = document.getElementById('gesture-main-text');
+        const gestureSubText = document.getElementById('gesture-sub-text');
+
+        // 生成粒子貼圖（讓粒子看起來像柔和的圓點）
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 32, 32);
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        /**
+         * 3. 粒子形狀數學模型
+         */
+        const shapes = {
+            sphere: (count) => {
+                const positions = [];
+                for (let i = 0; i < count; i++) {
+                    const r = 10 * Math.cbrt(Math.random());
+                    const theta = Math.random() * 2 * Math.PI;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const x = r * Math.sin(phi) * Math.cos(theta);
+                    const y = r * Math.sin(phi) * Math.sin(theta);
+                    const z = r * Math.cos(phi);
+                    positions.push(x, y, z);
+                }
+                return positions;
+            },
+            heart: (count) => {
+                const positions = [];
+                for (let i = 0; i < count; i++) {
+                    // 參數方程式
+                    let t = Math.random() * Math.PI * 2;
+                    // 分佈修正，讓愛心內部也有粒子
+                    let r = Math.sqrt(Math.random()); 
+                    
+                    // 愛心形狀公式
+                    let x = 16 * Math.pow(Math.sin(t), 3);
+                    let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                    let z = (Math.random() - 0.5) * 4 * r; // 厚度
+
+                    // 縮放
+                    positions.push(x * r * 0.5, y * r * 0.5, z);
+                }
+                return positions;
+            },
+            flower: (count) => {
+                const positions = [];
+                const k = 5; // 花瓣數
+                for (let i = 0; i < count; i++) {
+                    const r = Math.random() * 15;
+                    const theta = Math.random() * Math.PI * 2;
+                    // 玫瑰曲線變體
+                    const radius = r * Math.cos(k * theta);
+                    const x = radius * Math.cos(theta);
+                    const y = radius * Math.sin(theta);
+                    const z = (Math.random() - 0.5) * (r * 0.2); // 隨半徑增加的厚度
+                    positions.push(x, y, z);
+                }
+                return positions;
+            },
+            saturn: (count) => {
+                const positions = [];
+                for (let i = 0; i < count; i++) {
+                    // 30% 球體，70% 光環
+                    if (Math.random() < 0.3) {
+                        // 球體
+                        const r = 5 * Math.cbrt(Math.random());
+                        const theta = Math.random() * 2 * Math.PI;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        positions.push(
+                            r * Math.sin(phi) * Math.cos(theta),
+                            r * Math.sin(phi) * Math.sin(theta),
+                            r * Math.cos(phi)
+                        );
+                    } else {
+                        // 光環
+                        const r = 8 + Math.random() * 8; // 半徑 8 到 16
+                        const theta = Math.random() * 2 * Math.PI;
+                        positions.push(
+                            r * Math.cos(theta),
+                            (Math.random() - 0.5) * 0.5, // 扁平
+                            r * Math.sin(theta)
+                        );
+                    }
+                }
+                return positions;
+            },
+            fireworks: (count) => {
+                const positions = [];
+                for (let i = 0; i < count; i++) {
+                    const r = Math.random() * 20;
+                    const theta = Math.random() * 2 * Math.PI;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    positions.push(
+                        r * Math.sin(phi) * Math.cos(theta),
+                        r * Math.sin(phi) * Math.sin(theta),
+                        r * Math.cos(phi)
+                    );
+                }
+                return positions;
+            },
+            galaxy: (count) => {
+                const positions = [];
+                const arms = 3;
+                for (let i = 0; i < count; i++) {
+                    const iArm = i % arms;
+                    const r = Math.random() * 20;
+                    const spin = r * 0.5;
+                    const armAngle = (iArm / arms) * Math.PI * 2;
+                    const theta = armAngle + spin + (Math.random() - 0.5); 
+                    
+                    // 隨機散佈在旋臂周圍
+                    const spread = 2.0 * (r / 20.0);
+                    const x = (r + (Math.random() - 0.5) * spread) * Math.cos(theta);
+                    const y = (Math.random() - 0.5) * spread; // 扁平
+                    const z = (r + (Math.random() - 0.5) * spread) * Math.sin(theta);
+                    
+                    positions.push(x, y, z);
+                }
+                return positions;
+            }
+        };
+
+        // 初始化或重建粒子系統
+        function initParticles(shapeKey) {
+            if (particleSystem) {
+                scene.remove(particleSystem);
+                particleSystem.geometry.dispose();
+                particleSystem.material.dispose();
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = shapes[shapeKey](particleCount);
+            basePositions = new Float32Array(positions);
+            
+            geometry.setAttribute('position', new THREE.Float32Attribute(basePositions, 3));
+
+            const material = new THREE.PointsMaterial({
+                color: particleColor,
+                size: 0.3,
+                map: createParticleTexture(),
+                transparent: true,
+                opacity: 0.8,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+            
+            // 重置動畫狀態
+            currentScale = 0.1; // 從小變大
+            targetScale = 1.0;
+            
+            particleCountEl.textContent = particleCount;
+        }
+
+        // 初始建立愛心形狀
+        initParticles('heart');
+
+        /**
+         * 4. MediaPipe Hands 設定
+         */
+        const videoElement = document.getElementById('input-video');
+        
+        function onResults(results) {
+            // 隱藏載入畫面
+            if (loader.style.display !== 'none') {
+                loader.style.display = 'none';
+            }
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                detectionStatusEl.textContent = "偵測到手部";
+                detectionStatusEl.style.color = "#00ff88";
+
+                // 只取第一隻手
+                const landmarks = results.multiHandLandmarks[0];
+
+                // 計算手勢邏輯
+                // 我們計算指尖 (4,8,12,16,20) 到手腕 (0) 的平均距離
+                // 並與手腕 (0) 到中指根部 (9) 的距離做比較，來判斷是握拳還是張開
+                
+                const wrist = landmarks[0];
+                const middleFingerMCP = landmarks[9];
+                const fingertips = [4, 8, 12, 16, 20];
+                
+                // 基準距離：手腕到中指根部的距離 (作為手掌大小的參考)
+                const refDist = Math.hypot(middleFingerMCP.x - wrist.x, middleFingerMCP.y - wrist.y);
+                
+                let totalTipDist = 0;
+                fingertips.forEach(idx => {
+                    const tip = landmarks[idx];
+                    totalTipDist += Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+                });
+                
+                const avgTipDist = totalTipDist / 5;
+
+                // 閥值判斷
+                // 如果指尖平均距離小於基準距離的 1.2 倍，視為握拳
+                // 否則視為張開
+                // 這是一個簡單且強健的啟發式算法
+
+                const isFist = avgTipDist < (refDist * 1.3); // 係數可微調
+
+                if (isFist) {
+                    targetScale = 0.15; // 收縮
+                    gestureStatusEl.textContent = "握拳 (收縮)";
+                    gestureStatusEl.style.color = "#ff4d4d";
+                    showHint("握拳", "引力收縮");
+                } else {
+                    // 根據張開程度微調擴張大小
+                    const expansionFactor = Math.min(avgTipDist / (refDist * 2.0), 1.5); 
+                    targetScale = 0.8 + expansionFactor; // 基礎擴張 + 手勢張開度
+                    gestureStatusEl.textContent = "張開 (擴張)";
+                    gestureStatusEl.style.color = "#00d2ff";
+                    showHint("張開", "能量擴張");
+                }
+
+            } else {
+                detectionStatusEl.textContent = "未偵測到手部";
+                detectionStatusEl.style.color = "#aaa";
+                gestureStatusEl.textContent = "無";
+                
+                // 沒有手時，稍微回到預設大小
+                targetScale = 1.0;
+                hideHint();
+            }
+        }
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // 啟動攝像頭
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        
+        // 處理攝像頭錯誤
+        cameraUtils.start()
+            .then(() => {
+                console.log("Camera started");
+            })
+            .catch(err => {
+                console.error(err);
+                loaderText.textContent = "無法存取攝像頭，請檢查權限。";
+                document.querySelector('.spinner').style.display = 'none';
+                document.getElementById('reload-btn').style.display = 'block';
+            });
+
+        /**
+         * 5. 事件監聽與互動
+         */
+        
+        // 切換形狀
+        shapeSelect.addEventListener('change', (e) => {
+            initParticles(e.target.value);
+        });
+
+        // 切換顏色
+        colorPicker.addEventListener('input', (e) => {
+            particleColor.set(e.target.value);
+            if (particleSystem) {
+                particleSystem.material.color = particleColor;
+            }
+        });
+
+        // 視窗大小調整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 提示文字顯示邏輯
+        function showHint(main, sub) {
+            gestureMainText.textContent = main;
+            gestureSubText.textContent = sub;
+            gestureHint.style.opacity = 1;
+        }
+        function hideHint() {
+            gestureHint.style.opacity = 0;
+        }
+
+        /**
+         * 6. 動畫主循環
+         */
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // 平滑縮放過渡
+            // 使用 Lerp (Linear Interpolation) 讓縮放動畫更流暢
+            currentScale += (targetScale - currentScale) * 0.1;
+            
+            if (particleSystem) {
+                particleSystem.scale.set(currentScale, currentScale, currentScale);
+
+                // 緩慢自轉
+                particleSystem.rotation.y += 0.002;
+                particleSystem.rotation.z += 0.001;
+
+                // 讓粒子有點"呼吸"或浮動的感覺
+                // 這裡我們稍微修改 geometry 中的 vertex 位置會比較耗能，
+                // 對於 15000 粒子，我們主要依賴整體的 scale 和 rotation，
+                // 或者可以在 Shader 中做，但為了保持 JS 單文件簡潔，我們只做整體變換。
+                
+                // 針對 "煙火" 做一點特殊的旋轉效果
+                if (shapeSelect.value === 'fireworks') {
+                    particleSystem.rotation.y -= 0.01; 
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>
