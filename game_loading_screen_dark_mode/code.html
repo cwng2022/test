@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Game Loading Screen - BillyWa's Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Orbitron:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f2ff",
+                        "secondary": "#7000ff",
+                        "accent": "#ff00c8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#05070a",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "orbitron": ["Orbitron", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .grid-bg {
+            background-image: linear-gradient(rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        .neon-glow-blue {
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.7);
+        }
+        .neon-border-pink {
+            box-shadow: 0 0 15px rgba(255, 0, 200, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-white transition-colors duration-300">
+<div class="relative flex h-screen w-full flex-col overflow-hidden grid-bg">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-white/10 px-10 py-4 bg-background-dark/80 backdrop-blur-md z-10">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-4xl">rocket_launch</span>
+</div>
+<h2 class="text-white text-xl font-bold leading-tight tracking-tight uppercase">BillyWa's <span class="text-primary">Center</span></h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-white/70 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">GAMES</a>
+<a class="text-white/70 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">STORE</a>
+<a class="text-white/70 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">COMMUNITY</a>
+<a class="text-white/70 hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">SUPPORT</a>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/50" data-alt="User profile avatar with neon glow" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCayNARR82axNLFlhS-c09uIByysm3t6BE-AbpEtke2u84fWtPj-744jJCF0tOF3bcmE14iLANWDc1mXD-YAy1J8RkpewtUVXiNip0GvUFrlDcFjsDTKICcsWmc4XynxAhZRV_ZgpV5II9nme-6lvlLBH0pI5v1DV8tqZT3-5fvL7_nbIjzxCxWLK4Gto6o40pwZbfj0325nPeng3mfsJgNNfvYHdmczND1IxkE12fNLXVOnAVHJV_CEiXRzv9Btc2xvjK-a_I2jg");'></div>
+</div>
+</header>
+<main class="flex-1 flex flex-col items-center justify-center relative px-4">
+<div class="relative size-80 flex items-center justify-center">
+<div class="absolute inset-0 border-[6px] border-primary/20 rounded-full"></div>
+<div class="absolute inset-4 border-[4px] border-secondary/40 rounded-full"></div>
+<div class="absolute inset-0 border-t-[6px] border-primary rounded-full"></div>
+<div class="absolute inset-4 border-b-[4px] border-secondary rounded-full"></div>
+<div class="flex flex-col items-center">
+<span class="text-6xl font-bold font-orbitron text-primary neon-glow-blue">65%</span>
+<span class="text-xs uppercase tracking-[0.2em] text-white/50 mt-2">Initializing</span>
+</div>
+</div>
+<div class="mt-12 text-center">
+<h1 class="text-white font-orbitron tracking-widest text-5xl font-bold leading-tight uppercase mb-4">Classic Snake</h1>
+<p class="text-primary/80 text-lg font-medium tracking-wide">Connecting to Global Leaderboards...</p>
+</div>
+<div class="mt-8 bg-white/5 px-6 py-3 rounded-xl border border-white/10 backdrop-blur-sm">
+<p class="text-white/60 text-base font-normal flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+                    Hint: Use arrow keys to move the snake and eat dots!
+                </p>
+</div>
+</main>
+<footer class="w-full px-20 pb-16 pt-4 flex flex-col items-center gap-4">
+<div class="w-full max-w-4xl flex justify-between items-end mb-2">
+<span class="text-xs font-bold tracking-tighter text-white/40 uppercase">Loading Assets</span>
+<span class="text-xs font-bold tracking-tighter text-white/40 uppercase">v2.4.0-STABLE</span>
+</div>
+<div class="w-full max-w-4xl h-3 bg-white/10 rounded-full overflow-hidden neon-border-pink">
+<div class="h-full bg-gradient-to-r from-secondary via-accent to-primary" style="width: 65%;"></div>
+</div>
+<div class="mt-6 flex gap-6">
+<div class="flex items-center gap-2 text-white/30 text-xs">
+<span class="material-symbols-outlined text-sm">wifi</span>
+<span>Ping: 24ms</span>
+</div>
+<div class="flex items-center gap-2 text-white/30 text-xs">
+<span class="material-symbols-outlined text-sm">dns</span>
+<span>Server: US-EAST-1</span>
+</div>
+</div>
+</footer>
+<div class="absolute top-1/4 -left-20 size-96 bg-primary/10 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-1/4 -right-20 size-96 bg-secondary/10 blur-[120px] rounded-full"></div>
+</div>
+</body></html>

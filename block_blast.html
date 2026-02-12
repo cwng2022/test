@@ -303,6 +303,33 @@
             }
         }
 
+        /* --- Visual Effects --- */
+        .shake {
+            animation: shake-anim 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake-anim {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .floating-score {
+            position: absolute;
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.8rem;
+            pointer-events: none;
+            z-index: 50;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            animation: floatUp 0.8s ease-out forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1); opacity: 0; }
+        }
+
         /* --- Particles --- */
         #particles {
             position: fixed;
@@ -950,6 +977,23 @@
             return true;
         }
 
+        function triggerShake() {
+            gridEl.classList.remove('shake');
+            void gridEl.offsetWidth; // trigger reflow
+            gridEl.classList.add('shake');
+        }
+
+        function showFloatingScore(x, y, amount) {
+            const el = document.createElement('div');
+            el.className = 'floating-score';
+            el.innerText = '+' + amount;
+            const cellRect = gridEl.children[y * GRID_SIZE + x].getBoundingClientRect();
+            el.style.left = (cellRect.left + cellRect.width/2 - 20) + 'px'; // Center roughly
+            el.style.top = (cellRect.top - 20) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
         function tryPlacePiece(clientX, clientY) {
             const { x, y } = getGridCoordinates(clientX, clientY);
             const gridRect = gridEl.getBoundingClientRect();
@@ -1004,7 +1048,8 @@
                 const angle = Math.random() * Math.PI * 2;
                 const velocity = Math.random() * 150 + 50;
                 const tx = Math.cos(angle) * velocity;
-                const ty = Math.sin(angle) * velocity;
+                // Add gravity effect (y increases more)
+                const ty = Math.sin(angle) * velocity + 100; 
                 const rot = Math.random() * 360;
 
                 particlesEl.appendChild(p);
@@ -1037,6 +1082,7 @@
             if (cellsToRemove.length > 0) {
                 sfx.playClear(linesCleared);
                 sfx.vibrate('clear');
+                triggerShake(); // Add shake effect
                 const uniqueIndices = [...new Set(cellsToRemove)];
                 const cells = gridEl.children;
                 uniqueIndices.forEach(index => {
@@ -1055,6 +1101,11 @@
                     });
                 }, 350);
                 const clearScore = linesCleared * 10 + (linesCleared > 1 ? (linesCleared * 20) : 0);
+                
+                // Show floating score at the center of the first cleared block found (or approximate center)
+                const centerIdx = uniqueIndices[Math.floor(uniqueIndices.length / 2)];
+                showFloatingScore(centerIdx % GRID_SIZE, Math.floor(centerIdx / GRID_SIZE), clearScore);
+
                 updateScore(score + clearScore);
                 if (linesCleared > 1) showComboText(linesCleared);
             }

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff00c8",
+                        "background-light": "#f8f5f8",
+                        "background-dark": "#230f1f",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .grid-pattern {
+            background-image: radial-gradient(#d1d5db 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+        .spinner-glow {
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.3), 0 0 40px rgba(112, 0, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<div class="px-4 md:px-20 lg:px-40 flex flex-1 justify-center py-5">
+<div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-gray-200 dark:border-[#3d2438] px-6 md:px-10 py-3 mb-8">
+<div class="flex items-center gap-4 text-gray-900 dark:text-white">
+<div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white">
+<span class="material-symbols-outlined">rocket_launch</span>
+</div>
+<h2 class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">BillyWa's Center</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="hidden md:flex items-center gap-9">
+<a class="text-gray-700 dark:text-gray-300 text-sm font-medium hover:text-primary transition-colors" href="#">Store</a>
+<a class="text-gray-700 dark:text-gray-300 text-sm font-medium hover:text-primary transition-colors" href="#">Library</a>
+<a class="text-gray-700 dark:text-gray-300 text-sm font-medium hover:text-primary transition-colors" href="#">Community</a>
+<a class="text-gray-700 dark:text-gray-300 text-sm font-medium hover:text-primary transition-colors" href="#">Profile</a>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-gray-100 dark:bg-[#3d2438] text-gray-700 dark:text-white hover:bg-gray-200 transition-colors">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-gray-100 dark:bg-[#3d2438] text-gray-700 dark:text-white hover:bg-gray-200 transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Loading Area -->
+<main class="flex-1 flex flex-col items-center justify-center py-12 px-4 bg-white/50 rounded-3xl border border-gray-100 grid-pattern shadow-sm">
+<div class="text-center mb-10">
+<h1 class="text-gray-900 dark:text-white tracking-tight text-[42px] font-bold leading-tight pb-2">Classic Snake</h1>
+<div class="h-1 w-24 bg-gradient-to-r from-[#00f2ff] to-[#7000ff] mx-auto rounded-full"></div>
+</div>
+<!-- Central High-Tech Spinner Area -->
+<div class="relative flex items-center justify-center mb-16 h-64 w-64">
+<!-- Outer Ring -->
+<div class="absolute inset-0 rounded-full border-4 border-dashed border-[#00f2ff]/30 animate-[spin_10s_linear_infinite]"></div>
+<!-- Middle Ring -->
+<div class="absolute inset-4 rounded-full border-2 border-[#7000ff]/20"></div>
+<!-- Central Spinner -->
+<div class="relative h-40 w-40 rounded-full bg-white flex items-center justify-center shadow-xl border border-gray-50 overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-tr from-[#00f2ff]/10 to-[#7000ff]/10"></div>
+<div class="relative z-10 size-24 bg-background-light rounded-full flex items-center justify-center border border-gray-100 spinner-glow">
+<span class="material-symbols-outlined text-5xl text-transparent bg-clip-text bg-gradient-to-tr from-[#00f2ff] to-[#7000ff]">videogame_asset</span>
+</div>
+<!-- Decorative orbits -->
+<div class="absolute size-3 bg-[#00f2ff] rounded-full top-4 left-1/2 -translate-x-1/2 shadow-[0_0_10px_#00f2ff]"></div>
+<div class="absolute size-3 bg-[#7000ff] rounded-full bottom-4 left-1/2 -translate-x-1/2 shadow-[0_0_10px_#7000ff]"></div>
+</div>
+</div>
+<!-- Tip & Loading Status -->
+<div class="w-full max-w-md space-y-8">
+<div class="text-center space-y-2">
+<p class="text-gray-900 font-semibold text-lg">TIP: Use arrow keys to navigate and avoid your own tail!</p>
+<p class="text-gray-500 text-sm">Synchronizing with BillyWa cloud servers...</p>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-end">
+<div class="flex flex-col">
+<span class="text-gray-900 text-sm font-bold uppercase tracking-wider">Loading game assets</span>
+<span class="text-primary text-xs font-medium">Please wait...</span>
+</div>
+<span class="text-gray-900 font-bold text-2xl">65%</span>
+</div>
+<div class="h-3 w-full bg-gray-200 rounded-full overflow-hidden border border-gray-100 p-0.5">
+<div class="h-full bg-gradient-to-r from-[#ff00c8] to-[#ff00c8] rounded-full relative" style="width: 65%;">
+<div class="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:20px_20px]"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Info -->
+<footer class="mt-8 flex flex-col md:flex-row justify-between items-center text-gray-400 text-xs gap-4 px-4">
+<div class="flex gap-4">
+<span>V 2.4.0-STABLE</span>
+<span>REGION: US-EAST</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-2 bg-green-500 rounded-full animate-pulse"></span>
+<span>ALL SYSTEMS OPERATIONAL</span>
+</div>
+</footer>
+</div>
+</div>
+</div>
+</div>
+</body></html>
